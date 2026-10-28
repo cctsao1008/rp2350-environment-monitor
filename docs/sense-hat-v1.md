@@ -179,3 +179,43 @@ following a manual test recovered on the next record.
 disconnect before inferring anything from `AV_CONF=0x3F` on restart,
 or compare the Sense HAT module under a known humidity stimulus
 with an independent reference. Do not change firmware calibration.
+
+
+## HTS221 complete read-only register dump
+
+**Status: source implemented, not yet verified on RP2350.**
+
+The USB CDC command `hts dump` captures all defined HTS221 registers
+from ST DocID026333 Rev 5 Table 15 and the complete 16-byte calibration
+block. The output is **not** a contiguous memory dump of undocumented
+reserved locations. Those ranges are intentionally skipped.
+
+- Device: I2C 7-bit address 0x5F.
+- Control/configuration: 0x0F WHO_AM_I, 0x10 AV_CONF,
+  0x20 CTRL_REG1, 0x21 CTRL_REG2, 0x22 CTRL_REG3.
+- Data-ready and outputs: 0x27 STATUS before and after data;
+  one 4-byte auto-increment burst 0x28..0x2B for H/T raw ADC.
+- Factory coefficients: every byte 0x30..0x3F with address,
+  including reserved slots inside the calibration array.
+- Parsed T0/T1/H0/H1 calibration points, 16-bit two's-complement
+  raw values, unbounded humidity interpolation, temperature and
+  validity flags; decode of AV_CONF, ODR, BDU, power state, HEATER.
+- I2C reads only. No writes to any control, reserved or calibration
+  registers. Reading HUMIDITY_OUT_H or TEMP_OUT_H clears the respective
+  STATUS data-ready flag **by hardware design**; this is called out
+  explicitly in the output.
+- If a read fails the command terminates with a PARTIAL message.
+  This operation can take extra time on a 100kHz shared I2C bus, but
+  does not change the persistent configuration.
+- The source is not an atomic snapshot of all registers; calibration
+  and control are captured before status and sample bytes. Do not
+  assert sample simultaneity across different sensors.
+
+### Acceptance
+
+- [ ] The on-target `hts dump` logs all 0x0F/0x10/0x20..0x22,
+      0x27..0x2B and 0x30..0x3F addresses.
+- [ ] Raw H/T, unbounded RH and factory coefficients agree with
+      previous `hts diag` values within ordinary sampling changes.
+- [ ] No control or calibration register was written; normal 1Hz
+      environmental sampling continues.

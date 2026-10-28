@@ -251,3 +251,12 @@ The LED marquee code itself is unchanged in this follow-up.
 HTS221 humidity remains INVALID; do not use RH in fusion, logging as
 valid data, or SGP40 compensation. Retain BME280 RH. Preserve source
 and diagnostic functionality; no additional FW tuning scheduled.
+
+
+## HTS221 complete register dump (manual USB CDC)
+
+- [ ] `hts dump` command runs on RP2350 and prints documented register map,
+      16 calibration bytes with addresses, raw H/T and decoded values.
+- [ ] Read-only controls and calibration; `STATUS.H_DA/T_DA` read-to-clear
+      behavior via high output bytes is documented and observed.
+- [ ] Cross-check raw and calibration with prior `hts diag` captures.

@@ -17,11 +17,16 @@ static void help(void) {
     printf("Green-only 8x8 marquee, one pass, automatically OFF. Default OFF.\r\n");
     printf("HTS221: hts diag (read-only) | hts oneshot (mode test + restore)\r\n");
     printf("HTS221: hts avgtest (temporary 0x1B averaging + restore)\r\n");
+    printf("HTS221: hts dump (all defined registers, RAW and CAL; read-only)\r\n");
 }
 
 static void execute(const char *line) {
     if (strcmp(line, "help") == 0 || strcmp(line, "led help") == 0) {
         help();
+        return;
+    }
+    if (strcmp(line, "hts dump") == 0) {
+        sense_hts221_dump();
         return;
     }
     if (strcmp(line, "hts diag") == 0) {

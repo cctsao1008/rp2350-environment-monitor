@@ -416,6 +416,163 @@ restore:
            (unsigned)original_avg);
 }
 
+
+/*
+ * HTS221 complete documented-register dump, ST DocID026333 Rev 5,
+ * register map section 6 / conversion section 8.
+ *
+ * Read-only I2C access. Skips undocumented address ranges rather than
+ * pretending unknown reserved locations are part of a stable register API.
+ * A read of 0x29 / 0x2B clears STATUS.H_DA / STATUS.T_DA, respectively;
+ * this is the documented *read side effect*, not a register write.
+ */
+static void hts_dump_fixed_centi(const char *name, int32_t centi) {
+    int64_t absvalue = centi < 0 ? -(int64_t)centi : (int64_t)centi;
+    printf("%s=%s%ld.%02ld", name, centi < 0 ? "-" : "",
+           (long)(absvalue / 100), (long)(absvalue % 100));
+}
+
+void sense_hts221_dump(void) {
+    if (!hts_bus) {
+        printf("HTS221 DUMP: unavailable (sensor not initialized)\r\n");
+        return;
+    }
+    // Capture complete defined register map. CTRL_REG3 was not present
+    // in the earlier hts diag command; it is included here.
+    static const struct {
+        uint8_t addr;
+        const char *name;
+    } controls[] = {
+        {0x0Fu, "WHO_AM_I"},
+        {0x10u, "AV_CONF"},
+        {0x20u, "CTRL_REG1"},
+        {0x21u, "CTRL_REG2"},
+        {0x22u, "CTRL_REG3"}
+    };
+    uint8_t ctrl[sizeof(controls) / sizeof(controls[0])];
+    uint8_t cal[16] = {0};
+    uint8_t sample[4] = {0};
+    uint8_t status_before = 0, status_after = 0;
+    uint32_t started_ms = to_ms_since_boot(get_absolute_time());
+
+    printf("HTS221 DUMP BEGIN addr=0x5F uptime_ms=%lu READ_ONLY\r\n",
+           (unsigned long)started_ms);
+    for (unsigned i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i) {
+        if (!sensor_i2c_read(hts_bus, HTS_ADDR, controls[i].addr,
+                             &ctrl[i], 1u)) {
+            printf("HTS221 DUMP ERROR at 0x%02X (%s): I2C_READ_FAILED\r\n",
+                   (unsigned)controls[i].addr, controls[i].name);
+            printf("HTS221 DUMP END status=PARTIAL\r\n");
+            return;
+        }
+        printf("HTS221 REG [0x%02X] %-13s = 0x%02X\r\n",
+               (unsigned)controls[i].addr, controls[i].name,
+               (unsigned)ctrl[i]);
+    }
+
+    // Single 16-byte factory-calibration snapshot. Every byte is dumped
+    // with its register address, including reserved slots inside 30..3F.
+    // Absolutely no writes are issued to the factory-calibration bank.
+    if (!sensor_i2c_read(hts_bus, HTS_ADDR,
+                         (uint8_t)(0x30u | ST_BURST_FLAG),
+                         cal, sizeof(cal))) {
+        printf("HTS221 DUMP ERROR CALIB 0x30..0x3F: I2C_READ_FAILED\r\n");
+        printf("HTS221 DUMP END status=PARTIAL\r\n");
+        return;
+    }
+    for (unsigned row = 0; row < sizeof(cal); row += 4u) {
+        printf("HTS221 CAL");
+        for (unsigned i = row; i < row + 4u; ++i)
+            printf(" [0x%02X]=%02X",
+                   (unsigned)(0x30u + i), (unsigned)cal[i]);
+        printf("\r\n");
+    }
+
+    // Keep STATUS and output data adjacent in time. The 4-byte burst
+    // reads 0x28..0x2B consistently using the documented auto-increment
+    // bit 7, and completes both BDU register pairs.
+    if (!sensor_i2c_read(hts_bus, HTS_ADDR, 0x27u,
+                         &status_before, 1u) ||
+        !sensor_i2c_read(hts_bus, HTS_ADDR,
+                         (uint8_t)(0x28u | ST_BURST_FLAG),
+                         sample, sizeof(sample)) ||
+        !sensor_i2c_read(hts_bus, HTS_ADDR, 0x27u,
+                         &status_after, 1u)) {
+        printf("HTS221 DUMP ERROR STATUS/DATA 0x27..0x2B: "
+               "I2C_READ_FAILED\r\n");
+        printf("HTS221 DUMP END status=PARTIAL\r\n");
+        return;
+    }
+
+    printf("HTS221 REG [0x27] STATUS_BEFORE = 0x%02X "
+           "(H_DA=%u T_DA=%u)\r\n",
+           (unsigned)status_before,
+           (unsigned)((status_before >> 1u) & 1u),
+           (unsigned)(status_before & 1u));
+    printf("HTS221 REG [0x28] HUMIDITY_OUT_L = 0x%02X\r\n",
+           (unsigned)sample[0]);
+    printf("HTS221 REG [0x29] HUMIDITY_OUT_H = 0x%02X\r\n",
+           (unsigned)sample[1]);
+    printf("HTS221 REG [0x2A] TEMP_OUT_L     = 0x%02X\r\n",
+           (unsigned)sample[2]);
+    printf("HTS221 REG [0x2B] TEMP_OUT_H     = 0x%02X\r\n",
+           (unsigned)sample[3]);
+    printf("HTS221 REG [0x27] STATUS_AFTER  = 0x%02X "
+           "(high-byte reads clear data-ready flags)\r\n",
+           (unsigned)status_after);
+
+    int16_t h_raw = i16le(&sample[0]);
+    int16_t t_raw = i16le(&sample[2]);
+    uint8_t h0_x2 = cal[0], h1_x2 = cal[1];
+    uint16_t t0_x8 = (uint16_t)(cal[2] | ((uint16_t)(cal[5] & 0x03u) << 8u));
+    uint16_t t1_x8 = (uint16_t)(cal[3] | ((uint16_t)(cal[5] & 0x0Cu) << 6u));
+    int16_t h0_raw = i16le(&cal[6]), h1_raw = i16le(&cal[10]);
+    int16_t t0_raw = i16le(&cal[12]), t1_raw = i16le(&cal[14]);
+
+    printf("HTS221 DECODE Hraw=0x%04X (%d) Traw=0x%04X (%d)\r\n",
+           (unsigned)(uint16_t)h_raw, (int)h_raw,
+           (unsigned)(uint16_t)t_raw, (int)t_raw);
+    printf("HTS221 DECODE CAL H0x2=%u H1x2=%u H0raw=%d H1raw=%d "
+           "T0x8=%u T1x8=%u T0raw=%d T1raw=%d\r\n",
+           (unsigned)h0_x2, (unsigned)h1_x2,
+           (int)h0_raw, (int)h1_raw,
+           (unsigned)t0_x8, (unsigned)t1_x8,
+           (int)t0_raw, (int)t1_raw);
+
+    if (h0_raw == h1_raw || t0_raw == t1_raw) {
+        printf("HTS221 DECODE: INVALID_FACTORY_CALIBRATION "
+               "(zero interpolation denominator)\r\n");
+        printf("HTS221 DUMP END status=CAL_INVALID\r\n");
+        return;
+    }
+    int32_t rh_centi = (int32_t)h0_x2 * 50 +
+        div_signed_rounded((int64_t)((int32_t)h_raw - h0_raw) *
+                           ((int32_t)h1_x2 - h0_x2) * 50,
+                           (int32_t)h1_raw - h0_raw);
+    int32_t temp_centi = div_signed_rounded((int64_t)t0_x8 * 100, 8) +
+        div_signed_rounded((int64_t)((int32_t)t_raw - t0_raw) *
+                           ((int32_t)t1_x8 - t0_x8) * 100,
+                           (int64_t)8 * ((int32_t)t1_raw - t0_raw));
+    printf("HTS221 DECODE ");
+    hts_dump_fixed_centi("T_C", temp_centi);
+    printf(" ");
+    hts_dump_fixed_centi("RH_percent_unclamped", rh_centi);
+    printf(" RH_VALID=%s\r\n",
+           (rh_centi >= 0 && rh_centi <= 10000 &&
+            h_raw != (int16_t)-32768) ? "YES" : "NO");
+    printf("HTS221 DECODE AV_CONF: T_AVG=%u RH_AVG=%u "
+           "CTRL1_PD=%u BDU=%u ODR_BITS=%u HEATER=%u\r\n",
+           (unsigned)(2u << ((ctrl[1] >> 3u) & 7u)),
+           (unsigned)(4u << (ctrl[1] & 7u)),
+           (unsigned)((ctrl[2] >> 7u) & 1u),
+           (unsigned)((ctrl[2] >> 2u) & 1u),
+           (unsigned)(ctrl[2] & 0x03u),
+           (unsigned)((ctrl[3] >> 1u) & 1u));
+    printf("HTS221 DUMP END status=OK "
+           "(reserved 0x00..0x0E/0x11..0x1F/0x23..0x26/0x2C..0x2F "
+           "not accessed)\r\n");
+}
+
 bool sense_lps25h_init(i2c_inst_t *bus) {
     lps_bus = NULL;
     if (!match_id(bus, LPS_ADDR, 0xBDu)) return false;

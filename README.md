@@ -253,3 +253,15 @@ samples at 200ms spacing, and restores the original value with readback.
 This manual test can delay the next 1Hz sample; it never runs on boot.
 Try a complete power disconnect first and inspect `hts diag` for the
 factory reset `AV_CONF=0x1B` before any mode/configuration experiments.
+
+
+### Complete HTS221 register dump
+
+Enter `hts dump` over USB CDC to print all **documented** control,
+status, output and factory-calibration registers (hex with addresses),
+plus decoded H/T raw ADC, factory calibration, unclamped RH and validity.
+This is read-only and does not modify HTS221 settings; reading the high
+byte of the output pair clears the corresponding data-ready status flag
+as documented in the datasheet. Reserved addresses outside the
+0x30..0x3F calibration block are skipped. The feature is currently
+source-implemented and pending RP2350 hardware testing.
