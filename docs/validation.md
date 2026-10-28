@@ -281,3 +281,13 @@ and diagnostic functionality; no additional FW tuning scheduled.
 **Disposition:** HTS221 RH sensor channel untrustworthy; preserved invalid
 status and BME280 compensation path; no firmware changes to calibration
 or measurement algorithms.
+
+
+## HTS221 automatic bounded recovery experiment (source-only)
+
+- [ ] On-device boot auto-start with no CLI command.
+- [ ] Three 10s heater ON intervals, 30s cooldown, 5s logs.
+- [ ] Confirm no HTS221 data reported as valid during heat or cooldown.
+- [ ] Confirm no other sensor affected, and heater stops permanently.
+- [ ] Validate automatic heater OFF readback and error-retry.
+- [ ] Assess post-heat RH against BME280 without assuming repair.

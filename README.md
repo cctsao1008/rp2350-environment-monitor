@@ -265,3 +265,21 @@ byte of the output pair clears the corresponding data-ready status flag
 as documented in the datasheet. Reserved addresses outside the
 0x30..0x3F calibration block are skipped. The feature is currently
 source-implemented and pending RP2350 hardware testing.
+
+
+### HTS221 automatic heater diagnostic
+
+No terminal commands required. After HTS221 initialization, Firmware
+automatically performs a **finite** three-cycle heater comparison:
+5s baseline, 10s heater ON, 30s cooldown per cycle. Every 5s it emits
+an `HTS221 AUTO` status line (including cached raw values when not
+heating/cooling). Once finished, logging continues every 5s with heater
+OFF. Existing environmental measurements stay on their 1Hz schedule,
+except HTS221 T/RH are withheld during heater and cooldown. This is a
+short-pulse diagnostic and is **not** the minutes-long ST-recommended
+condensation recovery procedure.
+
+An optional `hts stop` command forces heater OFF and aborts additional
+cycles. If OFF cannot be verified due to a failed I2C transaction,
+firmware keeps retrying and warns that disconnecting power may be
+necessary. A hardware fault cannot be guaranteed safe through FW alone.

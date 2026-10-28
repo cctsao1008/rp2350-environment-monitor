@@ -36,6 +36,11 @@ void sense_hts221_diagnose(bool one_shot);
 void sense_hts221_averaging_test(void);
 // Read-only dump of all documented registers, raw samples, factory calibration.
 void sense_hts221_dump(void);
+void sense_hts221_recovery_init(void);
+void sense_hts221_recovery_poll(void);
+void sense_hts221_recovery_stop(void);
+bool sense_hts221_recovery_busy(void);
+bool sense_hts221_recovery_sample_blocked(void);
 bool sense_lps25h_init(i2c_inst_t *bus);
 bool sense_lps25h_read(sense_lps25h_sample_t *out);
 bool sense_lsm9ds1_init(i2c_inst_t *bus);

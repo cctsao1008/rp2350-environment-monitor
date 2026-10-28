@@ -142,7 +142,11 @@ static void output(const sensor_snapshot_t *s) {
             printf("%%)\r\n");
         }
     } else {
-        printf("HTS221   NOT_READY / ERROR / NOT_INSTALLED\r\n");
+        if (sense_hts221_recovery_sample_blocked()) {
+            printf("HTS221   HEATER / COOLDOWN - T and RH withheld\r\n");
+        } else {
+            printf("HTS221   NOT_READY / ERROR / NOT_INSTALLED\r\n");
+        }
     }
 
     if (s->lps25h_ok) {
@@ -206,6 +210,8 @@ int main(void) {
 
     sensor_presence_t present = {0};
     sensor_manager_init(SENSOR_BUS, &present);
+    // One bounded automatic heater experiment; no USB CDC command required.
+    sense_hts221_recovery_init();
     printf("INIT BME280=%s TSL2591=%s LTR390=%s SGP40=%s "
            "ICM20948=%s AK09916(mag)=%s\r\n",
            present.bme280 ? "OK" : "FAIL",
@@ -225,6 +231,7 @@ int main(void) {
     printf("HTS221 tests: 'hts diag' (read only), 'hts oneshot' (restore 7Hz after test)\r\n");
     printf("HTS221: 'hts avgtest' tests default averaging and restores original\r\n");
     printf("HTS221: 'hts dump' dumps defined registers and raw/calibration data\r\n");
+    printf("HTS221 AUTO: no commands needed; 5s logs, 3 bounded heater pulses\r\n");
     absolute_time_t next = get_absolute_time();
     while (true) {
         sensor_snapshot_t reading;
@@ -247,6 +254,7 @@ int main(void) {
                 break;
             }
             sense_hat_console_poll();
+            sense_hts221_recovery_poll();
             sense_hat_marquee_poll();
             sleep_ms(1);
         }

@@ -261,3 +261,57 @@ environmental damage, but not proved without independent hardware stimulus.
 **Decision:** Keep HTS221 RH INVALID; use BME280 for environment humidity
 and SGP40 compensation. No filter/offset correction justified. Firmware
 unchanged; diagnostic / acquisition evidence recorded.
+
+
+## Automatic HTS221 heater experiment — source implemented, hardware pending
+
+At boot, after the normal HTS221 sensor ID/init checks, a finite,
+non-blocking state machine automatically runs the following:
+
+- **5 s baseline**, with existing 1Hz sampling intact.
+- **10 s heater ON**, `CTRL_REG2 (0x21) bit1 = 1`; confirm readback,
+  suppress HTS221 temperature/humidity acquisition entirely.
+- **30 s cooldown** with heater turned OFF and verified. HTS221 T/RH
+  remain withheld during the cooldown so heater-contaminated values
+  are not represented as ambient.
+- Repeat the bounded cycle at most **three times per boot**, then
+  keep the heater OFF forever until firmware restarts.
+- Every **5 seconds** a separate `HTS221 AUTO` line reports stage,
+  last captured Hraw/Traw if available, and progress. After the
+  third cycle, 5s reports continue without further heating.
+- All other sensors, including BME280 for SGP40 compensation,
+  continue the normal **1Hz** acquisition path.
+
+Start-up safety gate requires `WHO_AM_I=0xBC`, `CTRL_REG1=0x86`,
+`CTRL_REG2=0x00`. If an unexpected reboot has left the heater bit
+ON, the firmware first attempts OFF and verifies it. Heater OFF
+is checked after every pulse. Inability to verify OFF triggers an
+automatic OFF retry every 250ms, keeps HTS221 data blocked and
+prints a warning: **physically disconnect power if OFF cannot be
+confirmed**. Hardware I2C faults cannot be made absolutely fail-safe
+by software alone.
+
+Optional `hts stop` aborts further heater cycles, turns heater OFF
+and verifies the result. Other `hts` manual diagnostic commands
+are not permitted until the automatic sequence has finished;
+the user does not need to type any command for the normal workflow.
+
+This **10s pulse is a comparative diagnostic** and is shorter than
+the minutes recommended by ST for recovery from prolonged
+condensation. Three short pulses do not establish that the heater
+can repair a sensing element. Do not interpret absence of recovery
+as proof of permanent physical damage.
+
+Authority: ST HTS221 DS Rev 5 Section 7.4 and official ST forum
+discussion of heater cycling (Jan 2020).
+
+- [ ] Sensor state correctly enters HEATING, COOLDOWN and DONE
+      without manual terminal input.
+- [ ] `CTRL_REG2.HEATER` confirmed ON only during pulse and OFF
+      afterwards.
+- [ ] No HTS221 T/RH measured while heater ON, and no stale values
+      used during cooldown.
+- [ ] Other sensors retain 1Hz output; recoverable or transient
+      I2C effects reviewed.
+- [ ] Last Hraw/RH remains invalid or recovers plausibly; report
+      without altering factory calibration.

@@ -18,11 +18,21 @@ static void help(void) {
     printf("HTS221: hts diag (read-only) | hts oneshot (mode test + restore)\r\n");
     printf("HTS221: hts avgtest (temporary 0x1B averaging + restore)\r\n");
     printf("HTS221: hts dump (all defined registers, RAW and CAL; read-only)\r\n");
+    printf("HTS221 AUTO: starts after boot; hts stop = manual emergency abort\r\n");
 }
 
 static void execute(const char *line) {
     if (strcmp(line, "help") == 0 || strcmp(line, "led help") == 0) {
         help();
+        return;
+    }
+    if (strcmp(line, "hts stop") == 0) {
+        sense_hts221_recovery_stop();
+        return;
+    }
+    if (strncmp(line, "hts ", 4) == 0 &&
+        sense_hts221_recovery_busy()) {
+        printf("HTS221 AUTO: diagnostic busy; use 'hts stop' if needed\r\n");
         return;
     }
     if (strcmp(line, "hts dump") == 0) {
