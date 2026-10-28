@@ -410,3 +410,53 @@ the latest main branch.
 
 No hardware-root-cause declaration is authorized by this document
 before those results have been reviewed.
+
+## 2026-10-28 hardware log: BOOT and independent One-shot verification
+
+The user captured on-target `d97bfa1` verification output. Results:
+
+| Test | Observed | Status |
+| --- | --- | --- |
+| ID/config entry | WHO_AM_I=BC, CTRL1=86, CTRL2=00, AV_CONF=3F | PASS identity, note default discrepancy |
+| Before BOOT | Hraw=-32768 (0x8000), Traw=381, RH=136.94% invalid | Fault remains |
+| BOOT bit | self-cleared YES, CTRL2=00 | PASS bit semantics |
+| Calibration | public 16 bytes unchanged | PASS, internal trim not directly observable |
+| After BOOT | Hraw=-32768, Traw=378, RH=136.94% invalid | No recovery |
+| One-shot H | H_DA=1 at 20ms, Hraw=-32768 | PASS conversion ready; value invalid |
+| One-shot T | T_DA=1 at 20ms, Traw=379 | PASS |
+| One-shot bit | self-cleared YES, CTRL2=00 | PASS |
+| Restore | CTRL1=86 CTRL2=00 AV_CONF=3F | PASS |
+| Post-test continuous | Hraw=-32768, Traw=379 | READY PASS; value invalid |
+| Normal operation | sample 1..19 at 3990..21990ms; 18 gaps all 1000ms | PASS timing |
+
+HTS221-only console filtering and 5s observe-only log were present.
+No automatic heater cycles were reported. All 19 ordinary measurements
+showed Hraw=-32768; temperature ranged roughly 26.12–26.21°C.
+
+**Causality limitations:** BOOT bit clearing is NOT a readback of the
+internal trimming cells. H_DA=1 is NOT proof that a numerically valid
+humidity conversion occurred. One-shot and continuous modes both report
+the same invalid Hraw. The log does NOT provide a pre-initialization
+register snapshot, and does NOT establish that the HTS221 power rail
+actually dropped to zero during a previous reset.
+
+### New preinit power-state comparison
+
+Per ST DocID026333 Rev 5 Table 15, factory reset defaults are
+AV_CONF=0x1B and CTRL_REG1/2/3=0x00. The observed `AV_CONF=0x3F`
+differs, but existing firmware reads it AFTER initialization.
+
+The firmware now prints `HTS221 PREINIT` immediately before the
+existing sensor_manager initialization. It issues **five individual
+read-only register reads** for WHO_AM_I/AV_CONF/CTRL_REG1/2/3.
+Do not treat `REG_DEFAULTS=MATCH` as proof of power loss or
+`DIFFER` as proof of damage: the true power state must also be
+controlled externally. A MCU-only reset can preserve the sensor's
+settings. The preinit read is deterministic and requires no CLI.
+
+- [ ] Build/flash new image, capture `HTS221 PREINIT` on MCU-only reset.
+- [ ] Remove all device power supplies, then reconnect and capture
+      `HTS221 PREINIT` for true cold start.
+- [ ] Compare 0x1B/0x00/0x00/0x00 against 0x3F/0x86/0x00/0x00.
+- [ ] Record any control write/restore error separately from Hraw.
+- [ ] No physical fault attribution until above comparison evaluated.

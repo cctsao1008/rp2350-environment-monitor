@@ -133,6 +133,38 @@ static int32_t div_signed_rounded(int64_t num, int64_t denom) {
     return (int32_t)((num + denom / 2) / denom);
 }
 
+
+/*
+ * Capture untouched HTS221 configuration BEFORE sense_hts221_init()
+ * writes CTRL_REG1. Does NOT modify any I2C device registers.
+ * HTS221 Rev5 Table15 nominal power-on: AV_CONF=1B CTRL1/2/3=00.
+ * A value differing from default is NOT proof of a sensor fault:
+ * a reset of RP2350 need not power-cycle the sensor.
+ */
+void sense_hts221_preinit_snapshot(i2c_inst_t *bus) {
+    if (!bus) {
+        printf("HTS221 PREINIT: ERROR bus unavailable\r\n");
+        return;
+    }
+    const uint8_t addrs[] = {0x0Fu, 0x10u, 0x20u, 0x21u, 0x22u};
+    uint8_t value[sizeof(addrs)] = {0};
+    for (unsigned i = 0u; i < sizeof(addrs); ++i) {
+        if (!sensor_i2c_read(bus, HTS_ADDR, addrs[i], &value[i], 1u)) {
+            printf("HTS221 PREINIT: READ_FAILED reg=0x%02X\r\n",
+                   (unsigned)addrs[i]);
+            return;
+        }
+    }
+    printf("HTS221 PREINIT: ID=%02X AV_CONF=%02X CTRL1=%02X "
+           "CTRL2=%02X CTRL3=%02X EXPECTED_POWER_ON=BC/1B/00/00/00 "
+           "REG_DEFAULTS=%s (reset type not inferred)\r\n",
+           (unsigned)value[0], (unsigned)value[1],
+           (unsigned)value[2], (unsigned)value[3], (unsigned)value[4],
+           value[0] == 0xBCu && value[1] == 0x1Bu &&
+           value[2] == 0u && value[3] == 0u && value[4] == 0u ?
+                "MATCH" : "DIFFER");
+}
+
 bool sense_hts221_init(i2c_inst_t *bus) {
     hts_bus = NULL;
     hts_invalid_count = 0;

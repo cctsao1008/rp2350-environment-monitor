@@ -366,3 +366,22 @@ ATtiny88 firmware or LED supply/enable hardware must be changed.
       collect AV_CONF values for both conditions.
 - [ ] Diagnose any self-test FAIL/RESTORE_FAILED by its exact logs,
       not by extrapolating from raw=0x8000.
+
+
+## 2026-10-28 HTS221 BOOT and independent ONE_SHOT real-device result
+
+- [x] `BOOT` flag clears automatically; CTRL_REG2=0x00.
+- [x] Public calibration bytes identical across BOOT operation.
+- [x] PRE_BOOT, POST_BOOT, POST_ONESHOT Hraw all -32768 (0x8000).
+- [x] Independent H_DA and T_DA both assert at 20ms; Hraw=-32768,
+      Traw=379, no temperature-ready dependency timeout.
+- [x] ONE_SHOT bit clears and CTRL1=0x86 CTRL2=0x00 AV_CONF=0x3F
+      restored with readback.
+- [x] 19 consecutive 1Hz HTS221-only frames / 18 intervals all 1000ms.
+- [ ] Internal BOOT trim contents not externally inspectable.
+- [ ] New source-only preinit snapshot of AV_CONF/CTRL1/2/3 hardware test.
+- [ ] Explicit full power-removal vs RP2350-only reset comparison.
+
+**Important:** HTS221 Rev5 Table 15 default AV_CONF=0x1B; the user
+observed AV_CONF=0x3F after init. This must be isolated BEFORE assuming
+the source of the difference. The new preinit snapshot is read-only.

@@ -232,6 +232,9 @@ int main(void) {
     sense_hat_probe_identify(SENSOR_BUS);
 #endif
 
+    // Observe the real HTS221 register state BEFORE any HTS221 init write.
+    // RP2350-only reset and full power loss may yield different values.
+    sense_hts221_preinit_snapshot(SENSOR_BUS);
     sensor_presence_t present = {0};
     sensor_manager_init(SENSOR_BUS, &present);
     // Observe-only HTS221 monitoring (no automatic heater cycles).

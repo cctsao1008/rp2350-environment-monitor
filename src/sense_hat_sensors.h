@@ -27,6 +27,9 @@ typedef struct {
     bool mag_valid;
 } sense_lsm9ds1_sample_t;
 
+// One-shot, read-only preinit register snapshot. Must run BEFORE sensor_manager_init.
+void sense_hts221_preinit_snapshot(i2c_inst_t *bus);
+
 // Independent init paths: failures on one IC do not block the others.
 bool sense_hts221_init(i2c_inst_t *bus);
 bool sense_hts221_read(sense_hts221_sample_t *out);
