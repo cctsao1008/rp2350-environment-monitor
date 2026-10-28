@@ -710,3 +710,78 @@ changes in RH at constant temperature.
 - [ ] Cold power-removal and PREINIT-default comparison.
 - [ ] NO changes to firmware or factory calibration as a result
       of this observational log.
+
+
+## 2026-10-28 full cooldown: RAW NEGATIVE-ENDPOINT SATURATION CONFIRMED
+
+New user-supplied USB CDC log `Pasted text(20261028-160912).txt`
+extends the same post-hair-dryer cooling experiment to sample #2182.
+
+**Dataset:** 2,181 complete readings (#2..#2182), uptime
+4,907..2,184,907 ms = 36m20s measured interval, every consecutive
+sampling gap **exactly 1000 ms** (2180/2180). Only 219 samples
+(#2..#220) satisfy the current code's 0..100% RH numerical gate.
+The other **1,962** (#221..#2182) are INVALID.
+
+| Stage | Sample | Uptime | HTS221 temperature | Hraw | Factory RH | Interpretation |
+|---|---:|---:|---:|---:|---:|---|
+| Heated beginning | 2 | 4.907 s | 57.33 C | unreported in 1Hz line | 54.65% | numerically in range |
+| First RH INVALID | 221 | 223.907 s | 31.37 C | -21546 | 100.14% | RH bound crossed |
+| Earlier extended tail | 501 | 503.907 s | 28.05 C | -30117 | 128.24% | still dynamic |
+| Prior log end | 714 | 716.907 s | 27.73 C | -31239 | 131.92% | still dynamic |
+| Near negative limit | 1000 | 1002.907 s | 27.33 C | -32218 | 135.13% | approaching endpoint |
+| FIRST endpoint hit | **1096** | **1098.907 s** | **27.18 C** | **-32768 (0x8000)** | **136.94%** | intermittent lower-end clipping starts |
+| Last non-endpoint | 1129 | 1131.907 s | 27.20 C | -32750 | 136.88% | last observed varying value |
+| Begin continuous endpoint | **1130** | **1132.907 s** | **27.21 C** | **-32768** | **136.94%** | permanent for remainder of this capture |
+| End | **2182** | **2184.907 s** | **27.18 C** | **-32768** | **136.94%** | no spontaneous recovery |
+
+From sample #1130 to #2182, **1,053 consecutive one-second frames**
+all have exactly Hraw=-32768 with RH=136.94%: 1052 seconds (17m32s)
+between the first and last matching readings. T continues to update,
+spanning approximately 27.01..27.23 C over the same period. A total
+**1,075** individual frames in the whole capture have the exact endpoint
+value (-32768), including 22 intermittent hits before the long flatline.
+
+There are 33 independent diagnostic burst-vs-byte comparisons in the
+capture. Late diagnostics show `burst_raw=-32768`,
+`single_L=0x00 single_H=0x80`,
+`STATUS=0x03 CTRL1=0x86 CTRL2=0x00 AV_CONF=0x3F`,
+corroborating **an actual register-level endpoint output** rather than
+a USB CDC formatter artifact, byte-order error, or missed update.
+`HTS221 AUTO` entries continue indicating `OBSERVE_ONLY` and
+`HEATER_AUTO=DISABLED`.
+
+**Disposition:** This is strong evidence that the humidity output
+repeatedly reaches the signed-int16 negative limit, then remains
+pinned. It does *not* by itself localize the saturation point to an
+internal ADC, sensing film, analog front-end, output clamp, or other
+component. It supersedes earlier observations of "raw remains dynamic"
+as a description of the *final state*.
+
+**Factory calibration decision:** Existing factory parameters
+(H0=29.5%RH, H1=68.5%RH, H0out=-5, H1out=-11898) only map the digital
+output to percent RH; they do not create missing raw variation.
+Changing coefficients/soft offsets at -32768 can produce any desired
+display value but, for all 1053 constant-raw frames, it would display
+one constant fabricated-looking RH independent of real vapor.
+At a provisional 60%RH single-point anchor from Hraw=-31323, keeping
+the original slope would only permit ~4.74%RH more *increasing
+humidity* before the output reaches -32768.
+This 60%RH anchor is illustrative, not a reference reading.
+No factory calibration overwrites and no claimed successful
+recalibration.
+
+**Remaining evidence gaps / next discriminating work:**
+- [x] Continuous post-cooldown negative endpoint established on target.
+- [x] Identical burst and separate-byte register readback at endpoint.
+- [x] No automatic heater, 1Hz cadence, original calibration retained.
+- [ ] Independent reference BME280 T/RH concurrently visible while
+      HTS221 is at stable temperature (currently console-hidden).
+- [ ] Constant-temperature non-condensing RH variation and reversal;
+      look for *raw leaving* -32768; if it does not, RH software
+      recalibration is not meaningful.
+- [ ] True all-supplies power-off cold start vs RP2350-only reset;
+      compare PREINIT AV_CONF/CTRL1 and post-init Hraw.
+- [ ] Root cause inside sensor or board not established.
+
+No Firmware modifications accompany this observation update.
