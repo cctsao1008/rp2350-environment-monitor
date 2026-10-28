@@ -344,3 +344,25 @@ ATtiny88 firmware or LED supply/enable hardware must be changed.
       RP2350 and nominal 1Hz interval. (Note: intended device is HTS221.)
 - [ ] Restore complete display by setting `HTS221_ONLY_OUTPUT=0` after
       the investigation.
+
+
+## HTS221 verification-first gate — pending real board evidence
+
+- [x] Existing real target logs: I2C identity, factory calibration,
+      byte/burst matching, 7Hz data, on-demand averaging and heater test.
+- [x] Source: independent ONESHOT H_DA/T_DA readiness and restore.
+- [x] Source: CTRL2.BOOT self-clearing bit poll and configuration restore.
+- [ ] **Build** latest source with Pico SDK 2.3.1.
+- [ ] **Flash** latest image via picotool.
+- [ ] Verify fresh `HTS221 VERIFY BEGIN` register values.
+- [ ] Verify `BOOT: bit_self_cleared=YES`, calibrated Hraw pre/post,
+      factory calibration-byte consistency and configuration restore.
+- [ ] Verify ONESHOT H_DA and T_DA independently, capture each latency
+      and raw, confirm restore PASS.
+- [ ] Verify POST_ONESHOT continuous Hraw without altering RH validity.
+- [ ] Confirm normal 1Hz HTS221-only output after the self-test and
+      5s OBSERVE_ONLY without heater activation.
+- [ ] Confirm complete power removal versus RP2350 reset separately;
+      collect AV_CONF values for both conditions.
+- [ ] Diagnose any self-test FAIL/RESTORE_FAILED by its exact logs,
+      not by extrapolating from raw=0x8000.

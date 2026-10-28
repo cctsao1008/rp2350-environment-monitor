@@ -36,6 +36,8 @@ void sense_hts221_diagnose(bool one_shot);
 void sense_hts221_averaging_test(void);
 // Read-only dump of all documented registers, raw samples, factory calibration.
 void sense_hts221_dump(void);
+// One-time automated firmware checks: factory BOOT + H/T independent ONE_SHOT.
+void sense_hts221_verify_once(void);
 void sense_hts221_recovery_init(void);
 void sense_hts221_recovery_poll(void);
 void sense_hts221_recovery_stop(void);

@@ -874,6 +874,251 @@ void sense_hts221_recovery_poll(void) {
     }
 }
 
+
+/*
+ * One-time boot verification of HTS221 features not previously confirmed
+ * on the RP2350. Independent H_DA/T_DA one-shot readiness, readback and
+ * factory trim BOOT reload. Runs before the first 1Hz acquisition, never
+ * in an interrupt. Writes ONLY CTRL1/CTRL2/AV_CONF; no heater / NVM write.
+ *
+ * Mechanism PASS does NOT imply valid RH. Numerical validity is reported
+ * separately. A failed register-restore readback quarantines HTS221.
+ */
+static bool hts_verify_read_burst(uint8_t addr, uint8_t *bytes, size_t length) {
+    return sensor_i2c_read(hts_bus, HTS_ADDR,
+                           (uint8_t)(addr | ST_BURST_FLAG), bytes, length);
+}
+
+static bool hts_verify_continuous(const char *label) {
+    uint8_t status = 0u, raw[4] = {0};
+    // Discard an old frame first: STATUS ready alone does not prove
+    // the data appeared *after* the BOOT or ONE_SHOT test boundary.
+    if (!hts_verify_read_burst(0x28u, raw, sizeof(raw))) {
+        printf("HTS221 VERIFY %s: STALE_DRAIN_FAILED\r\n", label);
+        return false;
+    }
+    for (unsigned n = 0; n < 15u; ++n) {
+        if (!hts_diag_read(0x27u, &status)) {
+            printf("HTS221 VERIFY %s: STATUS_READ_FAILED\r\n", label);
+            return false;
+        }
+        if ((status & 0x03u) == 0x03u) break;
+        sleep_ms(40u);
+    }
+    if ((status & 0x03u) != 0x03u) {
+        printf("HTS221 VERIFY %s: NOT_READY status=0x%02X\r\n",
+               label, (unsigned)status);
+        return false;
+    }
+    if (!hts_verify_read_burst(0x28u, raw, sizeof(raw))) {
+        printf("HTS221 VERIFY %s: BURST_READ_FAILED\r\n", label);
+        return false;
+    }
+    int16_t rh_raw = i16le(raw);
+    int16_t t_raw = i16le(&raw[2]);
+    int32_t rh_centi = (int32_t)hts_cal.h0_x2 * 50 +
+        div_signed_rounded((int64_t)((int32_t)rh_raw - hts_cal.h0_out) *
+                           ((int32_t)hts_cal.h1_x2 - hts_cal.h0_x2) * 50,
+                           (int32_t)hts_cal.h1_out - hts_cal.h0_out);
+    printf("HTS221 VERIFY %s: READY=YES status=0x%02X "
+           "Hraw=%d (0x%04X) Traw=%d RH_unclamped_centi=%ld "
+           "RH_VALID=%s\r\n", label, (unsigned)status,
+           (int)rh_raw, (unsigned)(uint16_t)rh_raw,
+           (int)t_raw, (long)rh_centi,
+           (rh_centi >= 0 && rh_centi <= 10000 &&
+            rh_raw != (int16_t)-32768) ? "YES" : "NO");
+    return true;
+}
+
+void sense_hts221_verify_once(void) {
+    if (!hts_bus) {
+        printf("HTS221 VERIFY: SKIP (sensor not initialized)\r\n");
+        return;
+    }
+
+    uint8_t id = 0u, initial_ctrl1 = 0u, initial_ctrl2 = 0u;
+    uint8_t initial_avg = 0u, cal_before[16] = {0}, cal_after[16] = {0};
+    if (!hts_diag_read(0x0Fu, &id) ||
+        !hts_diag_read(0x20u, &initial_ctrl1) ||
+        !hts_diag_read(0x21u, &initial_ctrl2) ||
+        !hts_diag_read(0x10u, &initial_avg) ||
+        !hts_verify_read_burst(0x30u, cal_before, sizeof(cal_before))) {
+        printf("HTS221 VERIFY: FAIL initial register read\r\n");
+        return;
+    }
+
+    printf("HTS221 VERIFY BEGIN ID=%02X CTRL1=%02X CTRL2=%02X "
+           "AV_CONF=%02X heater=%u\r\n", (unsigned)id,
+           (unsigned)initial_ctrl1, (unsigned)initial_ctrl2,
+           (unsigned)initial_avg, (unsigned)((initial_ctrl2 >> 1u) & 1u));
+
+    if (id != 0xBCu || initial_ctrl1 != 0x86u ||
+        initial_ctrl2 != 0x00u) {
+        printf("HTS221 VERIFY: SKIP writes (unexpected configuration)\r\n");
+        return;
+    }
+
+    (void)hts_verify_continuous("PRE_BOOT");
+
+    /* CTRL2.BOOT=1 reloads internal factory trimming, not the
+     * external calibration register bank. A single bounded reload
+     * is enough; the bit must clear autonomously. */
+    bool boot_started = true; // even a failed I2C write may take effect
+    bool boot_cleared = false;
+    uint8_t ctrl2 = 0u, ctrl1 = 0u, avg = 0u;
+    if (sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, 0x80u)) {
+        for (unsigned n = 0; n < 100u; ++n) {
+            sleep_ms(10u);
+            if (!hts_diag_read(0x21u, &ctrl2)) break;
+            if ((ctrl2 & 0x80u) == 0u) {
+                boot_cleared = true;
+                break;
+            }
+        }
+    }
+    printf("HTS221 VERIFY BOOT: bit_self_cleared=%s CTRL2=0x%02X\r\n",
+           boot_cleared ? "YES" : "NO", (unsigned)ctrl2);
+
+    // Always attempt to restore/verify exact pre-test configuration,
+    // including after a failed BOOT write (I2C ACK can be lost).
+    bool boot_restore = !boot_started ||
+        (sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, initial_ctrl2) &&
+         hts_diag_read(0x20u, &ctrl1) &&
+         hts_diag_read(0x21u, &ctrl2) &&
+         hts_diag_read(0x10u, &avg) &&
+         ctrl1 == initial_ctrl1 && ctrl2 == initial_ctrl2 &&
+         avg == initial_avg);
+    if (!boot_restore) {
+        printf("HTS221 VERIFY: BOOT RESTORE_FAILED; "
+               "HTS221 reads quarantined until reset\r\n");
+        hts_bus = NULL;
+        return;
+    }
+    if (hts_verify_read_burst(0x30u, cal_after, sizeof(cal_after))) {
+        bool same = true;
+        for (unsigned i = 0; i < sizeof(cal_before); ++i)
+            if (cal_before[i] != cal_after[i]) same = false;
+        printf("HTS221 VERIFY BOOT: calibration_bytes_unchanged=%s "
+               "(this is NOT an internal trim readback)\r\n",
+               same ? "YES" : "NO");
+    } else {
+        printf("HTS221 VERIFY BOOT: calibration_readback_FAILED\r\n");
+    }
+    (void)hts_verify_continuous("POST_BOOT");
+
+    /* Arduino cross-check: switch into ONE_SHOT mode and sample H_DA
+     * separately from T_DA instead of requiring simultaneous readiness.
+     * Use factory-default 0x1B averaging ONLY during this controlled
+     * test, then restore the exact initial averaging value. */
+    bool touched_avg = false, touched_ctrl1 = false, touched_ctrl2 = false;
+    bool h_ready = false, t_ready = false, trigger_ok = false;
+    bool oneshot_ok = false, cleanup_ok = true;
+    uint8_t raw_h[2] = {0}, raw_t[2] = {0}, status = 0u;
+    unsigned h_ms = 0u, t_ms = 0u;
+    touched_avg = true;
+    if (!sensor_i2c_write(hts_bus, HTS_ADDR, 0x10u, 0x1Bu) ||
+        !hts_diag_read(0x10u, &avg) || avg != 0x1Bu) {
+        printf("HTS221 VERIFY ONESHOT: AV_CONF_SET_FAILED\r\n");
+        goto restore_oneshot;
+    }
+    touched_ctrl1 = true;
+    if (!sensor_i2c_write(hts_bus, HTS_ADDR, 0x20u, 0x84u) ||
+        !hts_diag_read(0x20u, &ctrl1) || ctrl1 != 0x84u) {
+        printf("HTS221 VERIFY ONESHOT: CTRL1_SET_FAILED\r\n");
+        goto restore_oneshot;
+    }
+    // Clear stale data-ready by reading both HIGH output registers.
+    {
+        uint8_t stale[4] = {0};
+        if (!hts_verify_read_burst(0x28u, stale, sizeof(stale)) ||
+            !hts_diag_read(0x27u, &status) ||
+            (status & 0x03u) != 0u) {
+            printf("HTS221 VERIFY ONESHOT: OLD_READY_NOT_CLEARED "
+                   "status=0x%02X\r\n", (unsigned)status);
+            goto restore_oneshot;
+        }
+    }
+    touched_ctrl2 = true;
+    trigger_ok = sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, 0x01u);
+    if (!trigger_ok) {
+        printf("HTS221 VERIFY ONESHOT: TRIGGER_WRITE_FAILED\r\n");
+        goto restore_oneshot;
+    }
+    for (unsigned n = 1u; n <= 150u; ++n) {
+        sleep_ms(20u);
+        if (!hts_diag_read(0x27u, &status)) {
+            printf("HTS221 VERIFY ONESHOT: STATUS_READ_FAILED\r\n");
+            break;
+        }
+        if (!h_ready && (status & 0x02u)) {
+            if (!hts_verify_read_burst(0x28u, raw_h, sizeof(raw_h))) {
+                printf("HTS221 VERIFY ONESHOT: H_READ_FAILED\r\n");
+                break;
+            }
+            h_ready = true;
+            h_ms = n * 20u;
+        }
+        if (!t_ready && (status & 0x01u)) {
+            if (!hts_verify_read_burst(0x2Au, raw_t, sizeof(raw_t))) {
+                printf("HTS221 VERIFY ONESHOT: T_READ_FAILED\r\n");
+                break;
+            }
+            t_ready = true;
+            t_ms = n * 20u;
+        }
+        if (h_ready && t_ready) break;
+    }
+    printf("HTS221 VERIFY ONESHOT: H_DA=%u Hraw=%d H_ms=%u "
+           "T_DA=%u Traw=%d T_ms=%u last_status=%02X\r\n",
+           (unsigned)h_ready, h_ready ? (int)i16le(raw_h) : 0, h_ms,
+           (unsigned)t_ready, t_ready ? (int)i16le(raw_t) : 0, t_ms,
+           (unsigned)status);
+    // A humidity-only completion is not an RH failure of the One-shot
+    // mechanism; it is recorded separately from T readiness.
+    if (!hts_diag_read(0x21u, &ctrl2))
+        printf("HTS221 VERIFY ONESHOT: CTRL2_READ_FAILED\r\n");
+    else
+        printf("HTS221 VERIFY ONESHOT: ONE_SHOT_bit_cleared=%s "
+               "CTRL2=0x%02X\r\n",
+               (ctrl2 & 1u) == 0u ? "YES" : "NO", (unsigned)ctrl2);
+    oneshot_ok = h_ready;
+
+restore_oneshot:
+    // Keep going after each failed restoration write so all affected
+    // registers get their own restore attempt. Verify ALL three.
+    if (touched_ctrl2 &&
+        !sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, initial_ctrl2))
+        cleanup_ok = false;
+    if (touched_ctrl1 &&
+        !sensor_i2c_write(hts_bus, HTS_ADDR, 0x20u, initial_ctrl1))
+        cleanup_ok = false;
+    if (touched_avg &&
+        !sensor_i2c_write(hts_bus, HTS_ADDR, 0x10u, initial_avg))
+        cleanup_ok = false;
+    if (!hts_diag_read(0x20u, &ctrl1) ||
+        !hts_diag_read(0x21u, &ctrl2) ||
+        !hts_diag_read(0x10u, &avg) ||
+        ctrl1 != initial_ctrl1 || ctrl2 != initial_ctrl2 ||
+        avg != initial_avg) cleanup_ok = false;
+
+    if (!cleanup_ok) {
+        printf("HTS221 VERIFY: ONESHOT RESTORE_FAILED; "
+               "HTS221 reads quarantined until reset\r\n");
+        hts_bus = NULL;
+        return;
+    }
+    printf("HTS221 VERIFY ONESHOT: restore=PASS "
+           "CTRL1=%02X CTRL2=%02X AV_CONF=%02X "
+           "H_READY=%s T_READY=%s\r\n",
+           (unsigned)ctrl1, (unsigned)ctrl2, (unsigned)avg,
+           h_ready ? "YES" : "NO", t_ready ? "YES" : "NO");
+    (void)hts_verify_continuous("POST_ONESHOT");
+    printf("HTS221 VERIFY END: BOOT_CLEAR=%s ONESHOT_H=%s "
+           "ONESHOT_T=%s (see Hraw/RH validity separately)\r\n",
+           boot_cleared ? "YES" : "NO",
+           oneshot_ok ? "YES" : "NO", t_ready ? "YES" : "NO");
+}
+
 bool sense_lps25h_init(i2c_inst_t *bus) {
     lps_bus = NULL;
     if (!match_id(bus, LPS_ADDR, 0xBDu)) return false;

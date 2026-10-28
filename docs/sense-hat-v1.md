@@ -361,3 +361,52 @@ The LED will remain OFF unless the user issues a later `led demo` or
 `led TEXT` command. **No firmware-only guarantee of a flash-free
 instantaneous power-on** is possible while the ATtiny88 contains its
 built-in rainbow pattern. New reset and cold-power tests pending.
+
+
+## 2026-10-28 verification-first HTS221 root-cause gate
+
+**Source implemented; new on-target outcomes are PENDING.** Do not
+infer sensor hardware damage while these new Firmware checks are pending.
+
+After `sensor_manager_init()` and before the very first 1Hz sample,
+the firmware runs a **single**, bounded, automatically triggered
+`HTS221 VERIFY` sequence. No terminal command is needed.
+
+1. Read/print identity, CTRL1/CTRL2, AV_CONF, 16 factory-calibration
+   bytes, plus a fresh continuous-mode Hraw/Traw sample.
+2. With CTRL1=0x86 and CTRL2=0x00 verified, set
+   `CTRL_REG2.BOOT=1` exactly **once per RP2350 boot**.
+   Poll up to 100×10ms for bit7 to clear itself. Verify CTRL1/CTRL2/
+   AV_CONF restoration. Compare the public calibration bytes before
+   and after (NOTE: this does NOT expose internal trim registers).
+   Read fresh continuous Hraw/Traw again.
+3. Temporarily set AV_CONF=0x1B and CTRL1=0x84. Drain stale H/T
+   output registers, trigger ONE_SHOT, independently poll H_DA
+   and T_DA for up to 3 seconds. Read the H/T register pairs as
+   each individual data-ready flag asserts. A timeout on one does
+   **not** erase a success on the other. Print both latencies/raw.
+4. Write CTRL2=0x00, CTRL1=0x86, restore the exact original AV_CONF,
+   and verify all register readbacks. If this fails, **quarantine**
+   HTS221 (no further reads until reset); other sensors remain
+   available. Capture post-test continuous output.
+5. Print a mechanism summary (BOOT self-clear; ONESHOT H/T ready)
+   independently of `RH_VALID` and raw values. A mechanism PASS is
+   **not** proof of functional humidity sensing.
+
+The test never writes the calibration bank or turns on the heater.
+It is a temporary fault-isolation run, **not** a recommended
+normal-production boot sequence. It adds boot time, not a
+steady-state 1Hz cycle delay. The script intentionally stays in
+HTS221-only console mode for the current investigation.
+
+**What is already backed by target logs:** factory calibration
+readout, 7Hz continuous acquisition, burst & single registers,
+AVGTEST 0x1B comparison, heater cycles and safety restoration,
+and invalid humidity. **What is still not proved:** BOOT
+self-clear on this board, RH response after BOOT, independent
+One-shot H_DA/T_DA latencies, restoration on the next flash,
+true cold-boot vs MCU-only reset, and the host build/flash of
+the latest main branch.
+
+No hardware-root-cause declaration is authorized by this document
+before those results have been reviewed.

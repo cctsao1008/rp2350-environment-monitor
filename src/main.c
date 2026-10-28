@@ -236,6 +236,8 @@ int main(void) {
     sensor_manager_init(SENSOR_BUS, &present);
     // Observe-only HTS221 monitoring (no automatic heater cycles).
     sense_hts221_recovery_init();
+    // Run bounded HTS221 register/mode verification before the first 1Hz frame.
+    if (present.hts221) sense_hts221_verify_once();
 #if HTS221_ONLY_OUTPUT
     printf("Output mode: HTS221_ONLY (other sensor telemetry hidden, acquisition intact)\r\n");
     printf("INIT HTS221=%s\r\n", present.hts221 ? "OK" : "FAIL");
