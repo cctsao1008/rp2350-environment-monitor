@@ -306,13 +306,43 @@ as proof of permanent physical damage.
 Authority: ST HTS221 DS Rev 5 Section 7.4 and official ST forum
 discussion of heater cycling (Jan 2020).
 
-- [ ] Sensor state correctly enters HEATING, COOLDOWN and DONE
-      without manual terminal input.
-- [ ] `CTRL_REG2.HEATER` confirmed ON only during pulse and OFF
-      afterwards.
-- [ ] No HTS221 T/RH measured while heater ON, and no stale values
-      used during cooldown.
-- [ ] Other sensors retain 1Hz output; recoverable or transient
-      I2C effects reviewed.
-- [ ] Last Hraw/RH remains invalid or recovers plausibly; report
-      without altering factory calibration.
+- [x] On-target three cycles entered HEATING, COOLDOWN and DONE without CLI.
+- [x] Log reports heater ON verified for three 10-second intervals and heater OFF readback verified after each.
+- [x] HTS221 T/RH withheld throughout heating and cooldown.
+- [x] Other sensors continued 1Hz output: 157 logged samples, 156/156 intervals at 1000ms, zero scheduler WARN.
+- [x] HTS221 Hraw stays -32768 before, between and after three cycles; RH invalid at 136.94%, factory calibration unchanged.
+
+## 2026-10-28 heater experiment — hardware results and disposition
+
+The actual device completed all three automatically scheduled heater pulses
+(10s ON, each followed by verified OFF and 30s cooldown). It logged
+157 complete 1Hz sample frames #5..161, and all 156 inter-sample
+intervals were **exactly 1000ms**. No `WARN` lines were captured.
+
+| Period | HTS221 raw RH | BME280 RH | Observation |
+| --- | --- | --- | --- |
+| Initial before heat | -32768 | ~59.0% | INVALID |
+| After pulse 1 / 30s cooldown | -32768 | ~58.9% | INVALID |
+| After pulse 2 / 30s cooldown | -32768 | ~58.8% | INVALID |
+| After pulse 3 / 30s cooldown | -32768 (25 frames) | ~58.5–58.8% | INVALID |
+
+**Thermal coupling evidence:** LPS25H internal temperature rose
+from ~25.99°C at preheat to ~26.88°C at first 10s pulse end,
+~27.09°C at second, and ~27.17°C at third. BME280 stayed near
+26.7–26.8°C. This is evidence of local heat response in the
+stacked assembly, not a direct HTS221 heater thermometry measurement.
+
+The three experimental short pulses did not restore HTS221 humidity.
+The failure to recover does not by itself prove permanent damage or
+invalidate ST's different, much longer condensation recovery guidance.
+Repeated automatic heating on every reboot now has no demonstrated
+benefit, so the next default firmware is **automatic observation-only
+every 5s, Heater disabled**, preserving existing `RH=INVALID` gating,
+ordinary 1Hz acquisition, and previously implemented manual diagnosis.
+The heater experiment code stays in source but is disabled by
+`HTS_AUTO_ENABLE_HEATING=0`.
+
+At the end of the captured text, the host terminal reported
+`Error reading from serial device` after sample #161; no accompanying
+boot/reset banner establishes RP2350 reset or a firmware fault.
+This is unresolved and independent of the completed heater experiment.

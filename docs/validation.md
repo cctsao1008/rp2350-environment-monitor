@@ -285,9 +285,27 @@ or measurement algorithms.
 
 ## HTS221 automatic bounded recovery experiment (source-only)
 
-- [ ] On-device boot auto-start with no CLI command.
-- [ ] Three 10s heater ON intervals, 30s cooldown, 5s logs.
-- [ ] Confirm no HTS221 data reported as valid during heat or cooldown.
-- [ ] Confirm no other sensor affected, and heater stops permanently.
-- [ ] Validate automatic heater OFF readback and error-retry.
-- [ ] Assess post-heat RH against BME280 without assuming repair.
+- [x] On-device boot auto-start with no CLI command (experimental build).
+- [x] Three 10s heater ON intervals, 30s cooldown, 5s logs.
+- [x] No HTS221 data reported as valid during heat or cooldown.
+- [x] Other sensor acquisition continued at 1Hz; heater stopped after three cycles (LPS25H internal temperature did rise locally).
+- [x] Heater OFF readback verified 3/3; OFF failure/retry path not fault-injected, remains source-only.
+- [x] HTS221 post-heat Hraw stays -32768 / 136.94% INVALID; BME280 ~58.5–58.8% RH.
+
+### Heater experiment closure — user device, 2026-10-28
+
+- [x] 157 consecutive 1Hz records #5–#161; 156/156 intervals 1000ms.
+- [x] 3 heater ON verified and 3 OFF verified, cooldown complete, DONE.
+- [x] 37 validly read HTS221 raw humidity records, all -32768;
+      25 post-third-cycle records unchanged.
+- [x] HTS221 RH is still INVALID; do not attempt numerical correction.
+- [x] LPS25H temperature transient ~+0.9°C per heater pulse
+      (local thermally coupled stack), BME280 substantially stable.
+- [ ] Serial terminal ended with an unclassified device read error;
+      no evidence to distinguish cable, host software, USB CDC or reset.
+- [ ] New default observation-only firmware hardware check after flashing:
+      boot says OBSERVE_ONLY, 5s status lines, no heater activation.
+
+**Default FW disposition:** disable repetitive 3-cycle heater test
+on future boots; keep 5s autonomous logs, HTS221 invalid masking, and
+all other sensor drivers.

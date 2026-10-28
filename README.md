@@ -283,3 +283,19 @@ An optional `hts stop` command forces heater OFF and aborts additional
 cycles. If OFF cannot be verified due to a failed I2C transaction,
 firmware keeps retrying and warns that disconnecting power may be
 necessary. A hardware fault cannot be guaranteed safe through FW alone.
+
+
+### 2026-10-28 heater experiment result: default is observation-only
+
+The earlier automatic three-cycle heater experiment **finished successfully**
+on target, but humidity stayed `raw=-32768` and `RH=INVALID` before
+and after all three pulses. Repeating automatic heating on each reset
+adds heat and no demonstrated measurement benefit. Consequently the
+**latest firmware defaults to no automatic heater operation**.
+
+It still logs the last HTS221 raw T/RH and validity every **5s**
+without terminal commands, using a `phase=OBSERVE_ONLY` status line;
+the ordinary 1Hz sensor records continue. The heater test's source remains
+available behind the compile-time `HTS_AUTO_ENABLE_HEATING` setting,
+default `0`. Reenabling it is an explicit engineering change, not a
+required runtime command. See `docs/sense-hat-v1.md`.

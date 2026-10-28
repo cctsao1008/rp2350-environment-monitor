@@ -36,6 +36,10 @@ static uint32_t hts_invalid_count;
 #define HTS_AUTO_COOL_MS 30000u
 #define HTS_AUTO_LOG_MS 5000u
 #define HTS_AUTO_MAX_CYCLES 3u
+// Hardware evaluation finished (2026-10-28): three heater cycles did not
+// change RH raw 0x8000. Keep diagnostic code for reproducibility, but
+// disable heating on every new boot. 5-second observation remains automatic.
+#define HTS_AUTO_ENABLE_HEATING 0
 #define HTS_AUTO_OFF_RETRY_MS 250u
 
 typedef enum {
@@ -43,6 +47,7 @@ typedef enum {
     HTS_AUTO_BASELINE,
     HTS_AUTO_HEATING,
     HTS_AUTO_COOLING,
+    HTS_AUTO_OBSERVE_ONLY,
     HTS_AUTO_DONE,
     HTS_AUTO_OFF_FAULT
 } hts_auto_phase_t;
@@ -677,11 +682,21 @@ void sense_hts221_recovery_init(void) {
                (unsigned)id, (unsigned)ctrl1, (unsigned)ctrl2);
         return;
     }
+#if HTS_AUTO_ENABLE_HEATING == 0
+    // Read-only scheduled logging: no more experimental heater cycles on
+    // each reboot. All existing CLI diagnostics remain available.
+    hts_auto_phase = HTS_AUTO_OBSERVE_ONLY;
+    hts_auto_next_log_ms = now + HTS_AUTO_LOG_MS;
+    printf("HTS221 AUTO: OBSERVE_ONLY every 5s; HEATER OFF verified; "
+           "no automatic heating\r\n");
+    return;
+#else
     hts_auto_phase = HTS_AUTO_BASELINE;
     hts_auto_deadline_ms = now + HTS_AUTO_BASELINE_MS;
     hts_auto_next_log_ms = now + HTS_AUTO_LOG_MS;
     printf("HTS221 AUTO: ENABLED baseline=5s heat=10s cooldown=30s "
            "max_cycles=3 log=5s, starts automatically\r\n");
+#endif
 }
 
 bool sense_hts221_recovery_busy(void) {
@@ -725,6 +740,24 @@ void sense_hts221_recovery_stop(void) {
 void sense_hts221_recovery_poll(void) {
     if (!hts_bus || hts_auto_phase == HTS_AUTO_DISABLED) return;
     uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    if (hts_auto_phase == HTS_AUTO_OBSERVE_ONLY) {
+        if (hts_auto_reached(now, hts_auto_next_log_ms)) {
+            hts_auto_next_log_ms = now + HTS_AUTO_LOG_MS;
+            if (hts_auto_have_raw) {
+                printf("HTS221 AUTO: uptime=%lums phase=OBSERVE_ONLY "
+                       "Hraw=%d Traw=%d RH_VALID=%s HEATER_AUTO=DISABLED\r\n",
+                       (unsigned long)now, (int)hts_auto_last_hraw,
+                       (int)hts_auto_last_traw,
+                       hts_auto_last_rh_valid ? "YES" : "NO");
+            } else {
+                printf("HTS221 AUTO: uptime=%lums phase=OBSERVE_ONLY "
+                       "raw=NOT_YET_SAMPLED HEATER_AUTO=DISABLED\r\n",
+                       (unsigned long)now);
+            }
+        }
+        return;
+    }
 
     // A 5s status print is deliberately independent from the 1Hz sensor
     // stream. No extra RH/T register read occurs while heater is ON.
