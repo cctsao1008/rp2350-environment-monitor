@@ -1,0 +1,12 @@
+/build/
+/build-*/
+/out/
+CMakeUserPresets.json
+.vscode/
+.idea/
+*.log
+*.elf
+*.bin
+*.hex
+*.uf2
+.DS_Store

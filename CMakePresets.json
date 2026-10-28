@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "RP2350-PiZero / Ninja / Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PICO_BOARD": "waveshare_rp2350_pizero",
+        "PICO_PLATFORM": "rp2350-arm-s",
+        "PICO_SDK_PATH": "${sourceDir}/lib/pico-sdk",
+        "FETCHCONTENT_FULLY_DISCONNECTED": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "default", "configurePreset": "default" }
+  ]
+}
