@@ -54,7 +54,8 @@ ICM20948: WHO_AM_I 0xEA (PASS)
 
 ## Future P1 / P2
 
-- [ ] Sensor drivers, calibration and data validity.
+- [ ] BME280 compensated-data acquisition (source implemented; build/on-device validation pending). See [P1 BME280 plan](p1-bme280.md).
+- [ ] Other sensor measurement drivers, calibration and data validity.
 - [ ] VOC Index with temperature/humidity compensation.
 - [ ] Timestamped USB CDC telemetry.
 - [ ] microSD data logging.

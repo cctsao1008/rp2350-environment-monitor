@@ -5,6 +5,7 @@
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
+#include "sensor_manager.h"
 
 #define SENSOR_I2C i2c1
 #define SENSOR_SDA_PIN 2u
@@ -177,6 +178,21 @@ static void check_sgp40(void) {
     printf("\r\n");
 }
 
+// Format fixed-point results without requiring printf floating-point support.
+static void print_bme280(const bme280_reading_t *sample) {
+    int32_t centi = sample->temperature_centi_c;
+    const char *sign = centi < 0 ? "-" : "";
+    uint32_t mag = (uint32_t)(centi < 0 ? -centi : centi);
+    uint32_t rh = sample->humidity_centi_percent;
+    uint32_t pa = sample->pressure_pa;
+
+    printf("BME280: temp=%s%lu.%02lu C, humidity=%lu.%02lu %%RH, "
+           "pressure=%lu.%02lu hPa\r\n",
+           sign, (unsigned long)(mag / 100u), (unsigned long)(mag % 100u),
+           (unsigned long)(rh / 100u), (unsigned long)(rh % 100u),
+           (unsigned long)(pa / 100u), (unsigned long)(pa % 100u));
+}
+
 int main(void) {
     stdio_init_all();
     i2c_init(SENSOR_I2C, SENSOR_I2C_HZ);
@@ -186,16 +202,36 @@ int main(void) {
     gpio_pull_up(SENSOR_SCL_PIN);
 
     sleep_ms(3000);
-    printf("\r\nRP2350 Environment Monitor - bring-up\r\n");
+    printf("\r\nRP2350 Environment Monitor - P1 BME280 acquisition\r\n");
     printf("Board: waveshare_rp2350_pizero; I2C1 GPIO2/GPIO3\r\n");
 
+    // One-time bus diagnostics and device identification.
+    scan_i2c();
+    check_bme280();
+    check_sgp40();
+    check_tsl2591();
+    check_ltr390();
+    check_icm20948();
+
+    int8_t rc = sensor_manager_init(SENSOR_I2C);
+    if (rc != 0) {
+        printf("Sensor Manager: BME280 init FAIL (%d)\r\n", rc);
+        while (true) {
+            sleep_ms(5000);
+        }
+    }
+    printf("Sensor Manager: BME280 ready (forced mode, 1 Hz)\r\n");
+
+    absolute_time_t next = get_absolute_time();
     while (true) {
-        scan_i2c();
-        check_bme280();
-        check_sgp40();
-        check_tsl2591();
-        check_ltr390();
-        check_icm20948();
-        sleep_ms(5000);
+        sensor_snapshot_t snapshot = {0};
+        rc = sensor_manager_sample(&snapshot);
+        if (rc == 0) {
+            print_bme280(&snapshot.bme280);
+        } else {
+            printf("BME280: sample FAIL (%d)\r\n", rc);
+        }
+        next = delayed_by_ms(next, 1000u);
+        sleep_until(next);
     }
 }

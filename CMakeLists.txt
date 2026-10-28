@@ -27,6 +27,14 @@ endif()
 
 add_executable(environment_monitor
     src/main.c
+    src/sensor_manager.c
+    src/sensors/bme280_port.c
+    third_party/bosch_bme280/bme280.c
+)
+
+target_include_directories(environment_monitor PRIVATE
+    src
+    third_party/bosch_bme280
 )
 
 target_link_libraries(environment_monitor PRIVATE
@@ -39,6 +47,7 @@ target_compile_definitions(environment_monitor PRIVATE
     # Physical BOOTSEL at cold boot is controlled by ROM, not this setting.
     PICO_USB_RESET_BOOTSEL_INTERFACE_DISABLE_MASK=1
     PICO_ENABLE_USB_RESET_VIA_VENDOR_INTERFACE=1
+    BME280_DOUBLE_ENABLE=1
 )
 
 pico_enable_stdio_usb(environment_monitor 1)
