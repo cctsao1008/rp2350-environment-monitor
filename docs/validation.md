@@ -17,7 +17,8 @@ Status: **P0 SENSOR IDENTIFICATION PASSED (5/5)**. Other infrastructure and func
 - [x] LTR390 PART_ID from address `0x53`: `0xB2` (part `0xB`, revision `0x2`) (PASS).
 - [x] ICM20948 WHO_AM_I from address `0x68`: `0xEA` (PASS).
 - [x] Consecutive repeated identity scans show matching values with no errors in the supplied sample.
-- [ ] Sensor measurement data and calibration validated.
+- [x] BME280 compensated temperature, relative humidity, and pressure output functional PASS (33 consecutive USB CDC readings on 2026-10-28).
+- [ ] BME280 absolute measurement accuracy and calibration verified against a reference.
 
 ### First read-probe scan
 
@@ -52,9 +53,21 @@ ICM20948: WHO_AM_I 0xEA (PASS)
 
 **Not implied by these results:** Validated physical measurements, calibration, accuracy, long-duration stability, offline incremental build, or auto-reset/MSC enumeration behavior.
 
+## P1 BME280 acquisition: first on-target measurements (2026-10-28)
+
+User-reported 33 sequential lines of compensated BME280 data:
+
+| Metric | Minimum | Maximum | Mean |
+| --- | ---: | ---: | ---: |
+| Temperature (°C) | 25.47 | 25.52 | 25.50 |
+| Relative humidity (%RH) | 62.94 | 64.08 | 63.60 |
+| Pressure (hPa) | 1009.07 | 1009.20 | 1009.12 |
+
+No I2C/data errors appear in this captured sample. This is an initial **functional** validation only; keep accuracy, environmental stimulus-response, long-duration reliability and offline/no-MSC behavior open.
+
 ## Future P1 / P2
 
-- [ ] BME280 compensated-data acquisition (source implemented; build/on-device validation pending). See [P1 BME280 plan](p1-bme280.md).
+- [x] BME280 compensated-data acquisition: initial on-target functional test PASS (33 successive readings). See [P1 BME280 results](p1-bme280.md).
 - [ ] Other sensor measurement drivers, calibration and data validity.
 - [ ] VOC Index with temperature/humidity compensation.
 - [ ] Timestamped USB CDC telemetry.

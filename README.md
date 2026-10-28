@@ -2,7 +2,7 @@
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
-**Status:** P0 Sensor Identification **PASS (5/5)** on physical hardware (2026-10-28): BME280, SGP40 (serial + CRC), TSL2591, LTR390 and ICM20948. ELF build, PICOBOOT flash/verify and USB CDC also passed. P1 BME280 acquisition code is committed but not yet build- or hardware-validated. Measurement accuracy, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
+**Status:** P0 Sensor Identification **PASS (5/5)** on physical hardware (2026-10-28): BME280, SGP40 (serial + CRC), TSL2591, LTR390 and ICM20948. ELF build, PICOBOOT flash/verify and USB CDC also passed. P1 BME280 compensated measurement acquisition **PASS** in an initial 33-sample on-device functional test. Measurement accuracy, endurance, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
 
 ## Baseline architecture
 
@@ -12,7 +12,7 @@ Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environme
 - **Programming:** `picotool` loading an **ELF** through PICOBOOT; update/verify/execute. No MSC file-copy update path.
 - **Console:** USB CDC through Pico SDK stdio.
 - **P0 diagnostics:** one boot-time I2C read-probe (diagnostic only) plus all five device-specific identity reads.
-- **P1 (source only, not yet validated):** Bosch upstream BME280 SensorAPI (vendored, BSD-3-Clause), forced-mode temperature/humidity/pressure acquisition at 1 Hz via Sensor Manager; USB CDC fixed-point output.
+- **P1 (initial functional PASS on hardware):** Bosch upstream BME280 SensorAPI (vendored, BSD-3-Clause), forced-mode temperature/humidity/pressure acquisition at nominal 1 Hz via Sensor Manager; USB CDC fixed-point output.
 
 ## Clone
 
@@ -109,7 +109,7 @@ docs/validation.md     acceptance criteria and test evidence
 
 P0 Sensor Identification: **PASS (5/5)**. Remaining infrastructure qualification: offline incremental build and automatic runtime-reset flashing (including checking MSC enumeration policy).
 
-P1: BME280 compensated-data path is implemented in source and awaits compilation/on-device validation; see [P1 plan](docs/p1-bme280.md). After acceptance, add measurement drivers for TSL2591, LTR390, SGP40 and ICM20948; implement VOC Index after compensation inputs are valid.
+P1: BME280 compensated data acquisition passed an initial 33-sample on-device test; see [P1 evidence and remaining acceptance items](docs/p1-bme280.md). After acceptance, add measurement drivers for TSL2591, LTR390, SGP40 and ICM20948; implement VOC Index after compensation inputs are valid.
 
 P2: timestamped USB CDC output, persistent microSD logging and optional on-device display.
 
