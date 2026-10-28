@@ -513,3 +513,67 @@ Next tests, still pending:
       compare PREINIT AV_CONF/CTRL1 against prior MCU-only reset logs.
 - [ ] Do not edit factory calibration or mask invalid RH to force a PASS.
 - [ ] Mechanism/root-cause declaration remains PENDING.
+
+
+## 2026-10-28 extended cooldown log: 500 records through sample #501
+
+Second uploaded log extends the same post-hair-dryer cooling observation
+from `sample=2` through `sample=501`. There are **500 validly
+parsed output frames**, **499/499 gaps = 1000ms** (uptime 4907–
+503907ms; elapsed 499 seconds). `OBSERVE_ONLY` remains in effect,
+with `HEATER_AUTO=DISABLED`; no changes to the firmware or factory
+calibration occurred in the observed data.
+
+| Milestone | Sample | T | Computed RH | Hraw |
+| --- | --- | --- | --- | --- |
+| Start | 2 | 57.33°C | 54.65% | not printed |
+| Numeric range boundary | 220 | 31.52°C | 99.18% | not printed |
+| First INVALID | **221** | **31.37°C** | **100.14%** | **-21546** |
+| Midpoint | 301 | 29.72°C | 115.25% | -26154 |
+| Late | 401 | 28.61°C | 125.01% | -29132 |
+| End | **501** | **28.05°C** | **128.24%** | **-30117** |
+
+- Frames #2..220: **219** within the firmware numeric validity
+  gate (0–100%RH); this does **not** validate accuracy.
+- Frames #221..501: **281 consecutive INVALID**, all due to
+  computed RH exceeding 100% (no raw=0x8000 was reported in
+  these 281 records).
+- Last **60** samples: T mean **28.162°C** (min 28.05,
+  max 28.27°C), interpolated RH mean **128.127%**
+  (min ~126.74, max 129.43%). Temperature nearly stable but
+  numeric RH invalid throughout.
+- Entire 500-point temperature/RH correlation approximately
+  **-0.916**. This describes an uncontrolled cool-down and
+  is **not** a temperature correction or proof of causality.
+- Latest Hraw `-30117` is ~92% of the way from zero to the
+  signed-16 negative endpoint `-32768`; it **has not**
+  reached that endpoint again in this log.
+- Confirmed independent byte vs burst reads for invalid sample
+  #221: `0xAB 0xD6` reconstructed as `-21546`,
+  supporting correct sign/byte-order handling.
+
+**Interpretation:** Warm air produced a temporary numerical-range
+recovery and a dynamic humidity raw output, followed by a continuous
+re-entry into invalid relative humidity during cooling. The near-
+ambient tail still has a large positive RH error (assuming normal
+ambient conditions). There is no demonstration that temperature
+alone causes this; condensation, surface-film response, localized
+thermal gradients or leakage remain unseparated hypotheses.
+
+**No calibration write or software-recalibration is justified by
+this trace.** Changing mapping coefficients can rescale reported RH
+but cannot repair raw data or establish accuracy; a minimum of two
+controlled humidity reference states at a *stable common temperature*
+is needed to fit and verify a new software mapping.
+
+Pending:
+- [ ] Allow a longer steady ambient period without heating; retain
+      Hraw and unclamped RH and watch for renewed `-32768`.
+- [ ] Concurrent reference BME280 T/RH at a shared location, preferably
+      without adding I2C/sampling noise (the current HTS221-only mode
+      continues BME280 acquisition but hides its console values).
+- [ ] Controlled non-condensing humidity perturbation at constant T;
+      assess raw repeatability, slope and recovery after humidity reversal.
+- [ ] True all-supplies-off startup vs RP2350 reset, record PREINIT
+      AV_CONF and CTRL1/2/3.
+- [ ] Hardware root cause remains undetermined.
