@@ -53,7 +53,7 @@ static void scan_i2c(void) {
             ++responders;
         }
     }
-    printf("Read-probe responders: %u (not a sensor count)\\r\\n", responders);
+    printf("Read-probe responders: %u (not a sensor count)\r\n", responders);
 }
 
 static void check_bme280(void) {
