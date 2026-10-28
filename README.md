@@ -314,3 +314,19 @@ The `led demo` and manual text marquee remain available afterwards.
 A brief flash of the ATtiny88's built-in default image during true cold
 power-up cannot be ruled out with RP2350 firmware alone; strict
 power-on darkness would require ATtiny firmware or LED power control.
+
+
+### Temporary HTS221-only USB CDC output (2026-10-28)
+
+For HTS221 raw-humidity fault isolation, `src/main.c` defines
+`HTS221_ONLY_OUTPUT=1`. At boot, it prints the HTS221 initialization
+status but suppresses I2C scan, the four-device Sense HAT identity report,
+and initialization-status text for other sensors. During normal operation,
+only `[sample=... uptime=...]` and HTS221 T/RH with raw/unclamped
+invalid humidity appear each second. The HTS221 auto-observation state
+still reports cached raw values and validity every 5s. All other
+sensor drivers remain enabled, initialized, and sampled at 1Hz;
+**BME280 temperature/RH continue compensating SGP40 internally**.
+This is a **console output filter**, not a sensor power-down or a change
+to the shared I2C bus. LED startup blanking remains enabled. Set
+`HTS221_ONLY_OUTPUT=0` to restore the prior full sensor telemetry.

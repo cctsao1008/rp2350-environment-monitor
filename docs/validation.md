@@ -330,3 +330,17 @@ result is used to enable the optional `led demo` console controls.
 instant of power application; ATtiny88 may display its built-in default
 pattern before RP2350 can talk to it. For strict instantaneous darkness,
 ATtiny88 firmware or LED supply/enable hardware must be changed.
+
+
+## 2026-10-28 HTS221-only console output filter
+
+- [x] Source contains `HTS221_ONLY_OUTPUT=1` and a shared HTS221
+      output helper to prevent full-mode vs narrow-mode drift.
+- [x] Console 1Hz output includes only HTS221 and sample timestamp;
+      startup suppresses other sensor boot scan, IDs and INIT lines.
+- [x] Existing sensor_manager initialization, sampling, BME280-fed SGP40,
+      Sense HAT LED clearing and HTS221 automatic 5s observation unchanged.
+- [ ] Build via `scripts/build.ps1`, flash, verify HTS221-only output on
+      RP2350 and nominal 1Hz interval. (Note: intended device is HTS221.)
+- [ ] Restore complete display by setting `HTS221_ONLY_OUTPUT=0` after
+      the investigation.
