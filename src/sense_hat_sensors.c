@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include "pico/time.h"
 #include "sensors/sensor_i2c_util.h"
 
 #define WHO_AM_I 0x0Fu
@@ -135,6 +136,180 @@ bool sense_hts221_read(sense_hts221_sample_t *s) {
             (int64_t)8 * (hts_cal.t1_out - hts_cal.t0_out));
     s->humidity_centi_rh = (uint32_t)rh;
     return true;
+}
+
+
+/*
+ * HTS221 fault-isolation path, guided by ST DocID026333 Rev 5.
+ * Neither diagnostic command changes calibration registers 0x30..0x3F,
+ * reboots trim memory, nor turns on the heater.
+ *
+ * hts diag    : read only, capture the register contents as delivered.
+ * hts oneshot : requires exact known-good 0x86/0x00 control configuration;
+ *               briefly use 0x84 + ONE_SHOT and restore 7 Hz afterwards.
+ */
+static bool hts_diag_read(uint8_t reg, uint8_t *out) {
+    return sensor_i2c_read(hts_bus, HTS_ADDR, reg, out, 1u);
+}
+
+static void hts_diag_print_cal(void) {
+    uint8_t cal[16] = {0};
+    if (!sensor_i2c_read(hts_bus, HTS_ADDR,
+                         (uint8_t)(0x30u | ST_BURST_FLAG),
+                         cal, sizeof(cal))) {
+        printf("HTS221 CAL DIAG: READ_FAILED\r\n");
+        return;
+    }
+    printf("HTS221 CAL DIAG: bytes[30..3F]=");
+    for (unsigned i = 0; i < sizeof(cal); ++i)
+        printf("%s%02X", i ? " " : "", (unsigned)cal[i]);
+    printf("\r\n");
+    printf("HTS221 CAL DIAG: H0x2=%u H1x2=%u H0out=%d H1out=%d "
+           "T0x8=%u T1x8=%u T0out=%d T1out=%d\r\n",
+           (unsigned)hts_cal.h0_x2, (unsigned)hts_cal.h1_x2,
+           (int)hts_cal.h0_out, (int)hts_cal.h1_out,
+           (unsigned)hts_cal.t0_x8, (unsigned)hts_cal.t1_x8,
+           (int)hts_cal.t0_out, (int)hts_cal.t1_out);
+}
+
+static bool hts_diag_read_measurements(const char *label) {
+    uint8_t status_before = 0, burst[4] = {0};
+    uint8_t lo = 0, hi = 0;
+    if (!hts_diag_read(0x27u, &status_before) ||
+        !sensor_i2c_read(hts_bus, HTS_ADDR,
+                         (uint8_t)(0x28u | ST_BURST_FLAG),
+                         burst, sizeof(burst)) ||
+        !hts_diag_read(0x28u, &lo) || !hts_diag_read(0x29u, &hi)) {
+        printf("HTS221 %s: output registers READ_FAILED\r\n", label);
+        return false;
+    }
+    printf("HTS221 %s: status_before=0x%02X H_DA=%u T_DA=%u "
+           "burst=%02X %02X %02X %02X Hraw=%d Traw=%d "
+           "single_H=%02X%02X\r\n",
+           label, (unsigned)status_before,
+           (unsigned)((status_before >> 1u) & 1u),
+           (unsigned)(status_before & 1u),
+           (unsigned)burst[0], (unsigned)burst[1],
+           (unsigned)burst[2], (unsigned)burst[3],
+           (int)i16le(burst), (int)i16le(&burst[2]),
+           (unsigned)hi, (unsigned)lo);
+    if (i16le(burst) == (int16_t)-32768)
+        printf("HTS221 %s: RH RAW 0x8000; not a documented error code; "
+               "RH remains INVALID\r\n", label);
+    return true;
+}
+
+void sense_hts221_diagnose(bool one_shot) {
+    if (!hts_bus) {
+        printf("HTS221 DIAG: unavailable (initialization failed)\r\n");
+        return;
+    }
+
+    uint8_t ctrl1 = 0, ctrl2 = 0, av_conf = 0, id = 0;
+    if (!hts_diag_read(0x0Fu, &id) ||
+        !hts_diag_read(0x20u, &ctrl1) ||
+        !hts_diag_read(0x21u, &ctrl2) ||
+        !hts_diag_read(0x10u, &av_conf)) {
+        printf("HTS221 DIAG: control register READ_FAILED\r\n");
+        return;
+    }
+    printf("HTS221 DIAG: ID=0x%02X CTRL1=0x%02X CTRL2=0x%02X "
+           "heater=%u AV_CONF=0x%02X mode=%s\r\n",
+           (unsigned)id, (unsigned)ctrl1, (unsigned)ctrl2,
+           (unsigned)((ctrl2 >> 1u) & 1u), (unsigned)av_conf,
+           one_shot ? "ONESHOT_REQUEST" : "READ_ONLY");
+
+    hts_diag_print_cal();
+    if (!one_shot) {
+        (void)hts_diag_read_measurements("CONT");
+        return;
+    }
+
+    // One-shot is opt-in, not called during normal boot or sampling.
+    // This guard prevents overwriting unknown settings / heater state.
+    if (id != 0xBCu || ctrl1 != 0x86u || ctrl2 != 0x00u) {
+        printf("HTS221 ONESHOT: SKIPPED (unexpected CTRL/ID; "
+               "requires ID=BC CTRL1=86 CTRL2=00)\r\n");
+        return;
+    }
+
+    bool attempted_switch = false;
+    bool converted = false;
+    uint8_t status = 0;
+    uint8_t discard[4] = {0};
+
+    attempted_switch = true;
+    if (!sensor_i2c_write(hts_bus, HTS_ADDR, 0x20u, 0x84u)) {
+        printf("HTS221 ONESHOT: failed to enter one-shot mode\r\n");
+        goto restore;
+    }
+
+    // Drain old 7 Hz samples so H_DA/T_DA cannot be mistaken for the
+    // fresh one-shot conversion. BDU releases after the MSB reads.
+    if (!sensor_i2c_read(hts_bus, HTS_ADDR,
+                         (uint8_t)(0x28u | ST_BURST_FLAG),
+                         discard, sizeof(discard)) ||
+        !hts_diag_read(0x27u, &status)) {
+        printf("HTS221 ONESHOT: failed to clear old sample status\r\n");
+        goto restore;
+    }
+    if ((status & 0x03u) != 0u) {
+        printf("HTS221 ONESHOT: SKIPPED (data-ready not clear: 0x%02X)\r\n",
+               (unsigned)status);
+        goto restore;
+    }
+
+    // CTRL_REG2.ONE_SHOT=1; BOOT and HEATER intentionally remain zero.
+    if (!sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, 0x01u)) {
+        printf("HTS221 ONESHOT: trigger failed\r\n");
+        goto restore;
+    }
+
+    for (unsigned retry = 0; retry < 60u; ++retry) {
+        sleep_ms(10); // Max 600 ms; manual diagnostic, not steady-state path.
+        if (!hts_diag_read(0x27u, &status)) {
+            printf("HTS221 ONESHOT: status read failed\r\n");
+            goto restore;
+        }
+        if ((status & 0x03u) == 0x03u) {
+            converted = true;
+            break;
+        }
+    }
+    if (!converted) {
+        printf("HTS221 ONESHOT: TIMEOUT status=0x%02X (H_DA=%u T_DA=%u)\r\n",
+               (unsigned)status, (unsigned)((status >> 1u) & 1u),
+               (unsigned)(status & 1u));
+        goto restore;
+    }
+    (void)hts_diag_read_measurements("ONESHOT");
+
+restore:
+    // Restore previous continuous measurement settings even if the
+    // conversion failed. CTRL2 ONE_SHOT self-clears on completion.
+    if (attempted_switch) {
+        bool restored2 = sensor_i2c_write(hts_bus, HTS_ADDR, 0x21u, 0x00u);
+        bool restored1 = sensor_i2c_write(hts_bus, HTS_ADDR, 0x20u, ctrl1);
+        if (!restored1 || !restored2) {
+            printf("HTS221 ONESHOT: RESTORE_FAILED; HTS221 reads disabled "
+                   "until reset\r\n");
+            hts_bus = NULL;
+            return;
+        }
+    }
+    if (attempted_switch) {
+        uint8_t verify_ctrl1 = 0, verify_ctrl2 = 0;
+        if (!hts_diag_read(0x20u, &verify_ctrl1) ||
+            !hts_diag_read(0x21u, &verify_ctrl2) ||
+            verify_ctrl1 != ctrl1 || verify_ctrl2 != 0x00u) {
+            printf("HTS221 ONESHOT: RESTORE_VERIFY_FAILED; "
+                   "HTS221 reads disabled until reset\r\n");
+            hts_bus = NULL;
+            return;
+        }
+    }
+    printf("HTS221 ONESHOT: finished; continuous mode %s (CTRL1=0x%02X)\r\n",
+           attempted_switch ? "restored" : "unchanged", (unsigned)ctrl1);
 }
 
 bool sense_lps25h_init(i2c_inst_t *bus) {

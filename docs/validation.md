@@ -208,3 +208,11 @@ https://community.st.com/mems-sensors-48/in-hts221-sensor-not-getting-correct-hu
       investigation over changing the interpolation formula.
 
 The LED marquee code itself is unchanged in this follow-up.
+
+## HTS221 read-only snapshot + one-shot (implementation only)
+
+- [ ] Verify user-invoked `hts diag` read-only snapshot on target.
+- [ ] Verify user-invoked `hts oneshot` one-shot conversion with
+      explicit guard and restoration of 7 Hz continuous operation.
+- [ ] Confirm HTS221 RH diagnosis without changing other sensor values.
+- [ ] Do not infer chip damage from the undocumented 0x8000 raw code.

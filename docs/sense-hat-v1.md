@@ -62,3 +62,46 @@ An unrelated 5ms sleep granularity issue in the main scheduler produced
 warnings at each sample despite only ~2.6ms average period excess;
 follow-up firmware improves its deadline handling, still pending on-target
 verification.
+
+
+## HTS221 controlled fault-isolation (2026-10-28, source pending target test)
+
+Implemented USB CDC diagnostic commands; no extra software or HAT required.
+
+- `hts diag`: **read-only**, print WHO_AM_I, CTRL_REG1/2, HEATER bit,
+  AV_CONF, calibration bytes `0x30..0x3F`, STATUS before output read,
+  humidity+temperature burst output `0xA8..0xAB` and separate
+  `0x28` / `0x29` readings. Since the source runs at 7 Hz, the
+  burst and separate reads can theoretically span a conversion boundary:
+  interpret slight differences with caution.
+- `hts oneshot`: **explicit opt-in**. Only proceeds if
+  `WHO_AM_I=BC`, `CTRL_REG1=0x86` and `CTRL_REG2=0` (heater OFF).
+  Switches to one-shot `CTRL_REG1=0x84`, drains older output,
+  triggers `CTRL_REG2.ONE_SHOT=1`, polls `STATUS[1:0]=3`
+  for up to 600 ms, captures one-shot humidity and temperature, then
+  restores the previous continuous 7 Hz configuration. Does **not**
+  use BOOT, enable the heater, or write calibration/EEPROM registers.
+  A manual one-shot may perturb the current one-second schedule;
+  steady-state mode remains unchanged.
+- If restore fails, HTS221 collection is disabled until power-cycle to
+  avoid silently continuing with a changed measurement configuration.
+- `0x8000` is a signed 16-bit minimum value, **not an officially
+  documented HTS221 error code**. It remains invalid for the observed
+  physical comparison and repeated saturation. Diagnose independently
+  of the calibration interpolation.
+
+### Acceptance
+
+- [ ] `hts diag` confirms ID=0xBC, CTRL1=0x86, heater=0.
+- [ ] Single-register humidity agrees with burst humidity across stable
+      measurements or identifies a burst/read discrepancy.
+- [ ] `hts oneshot` captures fresh data with H_DA/T_DA high, and logs
+      restoration to continuous mode.
+- [ ] Sense HAT V1 LSM9DS1, LPS25H and Environment HAT continue
+      to acquire after the manual one-shot test.
+- [ ] If one-shot and continuous both report 0x8000, classify HTS221 RH
+      as unresolved hardware/measurement-chain fault; do not force
+      software correction or report 100%RH as valid.
+
+Authority: ST HTS221 Datasheet DocID026333 Rev 5 (2023), sections 5.1.1,
+7.3, 7.4, 7.6–7.8 and 8.

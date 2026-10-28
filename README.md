@@ -209,3 +209,32 @@ be diagnosed without assuming the physical RH is 100%.
 - The LED-driven loop's prior 5ms polling sleep caused repeated 2..3ms
   sample deadline warnings; precise deadline scheduling is now implemented
   in source, awaiting target verification.
+
+
+## HTS221 fault-isolation commands (manual, Sense HAT V1)
+
+The Sense HAT V1 HTS221 humidity channel has repeatedly returned the exact
+signed 16-bit minimum `0x8000` (reported as -32768), while its temperature
+channel updates and the BME280 reports RH around 59..62%. The ST datasheet
+does not define `0x8000` as an error code, so it must **not** be treated as
+proof of damage, nor used as valid humidity.
+
+With USB CDC running, type:
+
+- `hts diag`: read-only snapshot of HTS221 ID, CTRL_REG1/2, AV_CONF,
+  factory calibration bytes, STATUS, and burst versus individual 16-bit
+  output registers; leaves sensor configuration untouched.
+- `hts oneshot`: opt-in alternative conversion path. Only runs if the
+  device identity and control registers match the known active
+  7Hz/heater-off settings. Temporarily switches to one-shot, waits for
+  fresh humidity and temperature data, reports raw results, and restores
+  continuous 7Hz mode. In a manual diagnostic session this may temporarily
+  alter the current 1Hz sample scheduling.
+- `help`: prints both LED and HTS221 commands.
+
+Avoid issuing `hts oneshot` during timing qualification. If mode
+restoration cannot be confirmed, HTS221 reads are disabled until reset.
+No calibration registers, flash trim / BOOT or heater commands are written.
+
+See [HTS221 diagnostic acceptance](docs/sense-hat-v1.md). **Source
+implementation only until on-target testing confirms it.**

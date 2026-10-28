@@ -6,6 +6,7 @@
 #include <string.h>
 #include "pico/stdlib.h"
 #include "sense_hat_marquee.h"
+#include "sense_hat_sensors.h"
 
 #define CMD_LENGTH 76u
 static char command[CMD_LENGTH + 1u];
@@ -14,11 +15,20 @@ static size_t used;
 static void help(void) {
     printf("LED commands: led demo | led TEXT | led b 1..4 | led off\r\n");
     printf("Green-only 8x8 marquee, one pass, automatically OFF. Default OFF.\r\n");
+    printf("HTS221: hts diag (read-only) | hts oneshot (mode test + restore)\r\n");
 }
 
 static void execute(const char *line) {
     if (strcmp(line, "help") == 0 || strcmp(line, "led help") == 0) {
         help();
+        return;
+    }
+    if (strcmp(line, "hts diag") == 0) {
+        sense_hts221_diagnose(false);
+        return;
+    }
+    if (strcmp(line, "hts oneshot") == 0) {
+        sense_hts221_diagnose(true);
         return;
     }
     if (strncmp(line, "led", 3) != 0 || (line[3] != '\0' && line[3] != ' ')) {
