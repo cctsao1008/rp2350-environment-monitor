@@ -1,6 +1,7 @@
 #include "sense_hat_sensors.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include "sensors/sensor_i2c_util.h"
 
 #define WHO_AM_I 0x0Fu
@@ -63,6 +64,9 @@ bool sense_hts221_init(i2c_inst_t *bus) {
     // CTRL_REG1 = PD | BDU | 7 Hz (0x80 | 0x04 | 0x02).
     // 7 Hz avoids reporting a stale conversion to the 1 Hz host scheduler.
     if (!sensor_i2c_write(bus, HTS_ADDR, 0x20u, 0x86u)) return false;
+    printf("HTS221 CAL: H0x2=%u H1x2=%u H0out=%d H1out=%d\r\n",
+           (unsigned)hts_cal.h0_x2, (unsigned)hts_cal.h1_x2,
+           (int)hts_cal.h0_out, (int)hts_cal.h1_out);
     hts_bus = bus;
     return true;
 }
@@ -84,6 +88,11 @@ bool sense_hts221_read(sense_hts221_sample_t *s) {
         div_signed_rounded((int64_t)(humidity_raw - hts_cal.h0_out) *
                            ((int32_t)hts_cal.h1_x2 - hts_cal.h0_x2) * 50,
                            (int32_t)hts_cal.h1_out - hts_cal.h0_out);
+    // Preserve unclamped factory interpolation to distinguish a real RH
+    // measurement from a value silently clipped to 0% or 100%.
+    s->humidity_raw = humidity_raw;
+    s->humidity_unclamped_centi_rh = rh;
+    s->humidity_valid = rh >= 0 && rh <= 10000;
     if (rh < 0) rh = 0;
     if (rh > 10000) rh = 10000;
 

@@ -151,3 +151,22 @@ not yet compiled or validated on the target.**
 - [ ] Cross-HAT bias, self-heating and axis alignment analyzed; do not average readings yet.
 - [ ] Confirm all previous Environment HAT sensors remain functional after integration.
 - [ ] Minimum 60s run including post-blackout SGP40 VOC Index.
+
+
+## Sense HAT V1 scrolling LED marquee and HTS221 diagnostic (new FW)
+
+**New source only; built and on-device function not yet verified.**
+
+- [ ] Startup remains LED OFF (the previously verified LED clear remains).
+- [ ] USB CDC `led demo` scrolls `HELLO RP2350`, brightness initially 2/31; one pass then LED OFF.
+- [ ] USB CDC `led b 1` reduces brightness; `led off` immediately blanks LEDs.
+- [ ] USB CDC `led TEXT` scrolls up to 48 ASCII characters; unknown glyphs show `?`.
+- [ ] Concurrent 1 Hz sensor samples remain stable; no I2C/NACK regressions.
+- [ ] HTS221 factory coefficients printed once; on out-of-range humidity, show unclamped RH and raw ADC instead of treating clipped 100% as valid.
+- [ ] Compare BME280 and HTS221 RH; actual fault origin not yet identified.
+
+The newly captured 48 samples showed HTS221 RH stuck at 100.00 %RH while
+BME280 ranged around 62 %RH. LPS25H pressure was about 2.5 hPa above
+BME280; this needs reference verification, not arbitrary offset removal.
+Both IMUs were responsive to manual rotation. SGP40 VOC Index exited initial
+blackout at sample 47 but index value 1 is not enough to validate air quality.

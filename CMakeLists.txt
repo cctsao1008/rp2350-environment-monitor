@@ -29,6 +29,8 @@ add_executable(environment_monitor
     src/main.c
     src/sensor_manager.c
     src/sense_hat_led.c
+    src/sense_hat_marquee.c
+    src/sense_hat_console.c
     src/sense_hat_probe.c
     src/sense_hat_sensors.c
     src/sensors/bme280_port.c

@@ -9,7 +9,10 @@
 // compensation between two HATs is implied.
 typedef struct {
     int32_t temp_centi_c;
-    uint32_t humidity_centi_rh;
+    uint32_t humidity_centi_rh; // clamped display only; see humidity_valid
+    int32_t humidity_unclamped_centi_rh;
+    int16_t humidity_raw;
+    bool humidity_valid; // false if factory interpolation outside 0..100 %RH
 } sense_hts221_sample_t;
 
 typedef struct {

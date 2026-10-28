@@ -171,3 +171,29 @@ Environment HAT continues to sample. Additional ST measurement drivers for
 HTS221, LPS25H and LSM9DS1 have been added in `src/sense_hat_sensors.c`.
 Their live data, 1 Hz stability and orientation are **not yet verified**; see
 [Sense HAT V1 acquisition validation](docs/sense-hat-v1.md).
+
+
+## Sense HAT V1 marquee (optional, default OFF)
+
+The official V1 LED matrix can now display **low-brightness 8x8 scrolling
+ASCII text**. No LED updates run unless requested from USB CDC. The 64-LED
+framebuffer is accessed at I2C address `0x46` only after its controller
+identity has been verified; no EEPROM/control-register writes.
+
+With a terminal that supports sending a line to USB CDC:
+
+- `led demo` — scroll HELLO RP2350 once, then blank the matrix.
+- `led HELLO WORLD` — scroll custom uppercase/ASCII text (max 48 chars).
+- `led b 1` — select low brightness (levels 1..4 of 31).
+- `led off` — immediately clear the display.
+- `help` — show the command summary.
+
+Default brightness is **2/31 green only**, with a 170ms column period.
+LED text is an optional diagnostic display, never a blocking dependency of
+sensor sampling. Avoid leaving the LEDs on during thermal accuracy testing.
+
+**Known sensor-quality issue:** The captured initial Sense HAT measurements
+show HTS221 humidity stuck at clipped 100% vs BME280 around 62%.
+Firmware now exposes raw HTS221 humidity ADC and unclamped interpolation on
+invalid measurements, plus factory coefficients at startup, so the issue can
+be diagnosed without assuming the physical RH is 100%.

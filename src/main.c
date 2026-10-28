@@ -7,6 +7,8 @@
 #include "sensor_manager.h"
 #include "sense_hat_led.h"
 #include "sense_hat_probe.h"
+#include "sense_hat_marquee.h"
+#include "sense_hat_console.h"
 
 #define SENSOR_BUS i2c1
 #define SDA_PIN 2u
@@ -129,8 +131,16 @@ static void output(const sensor_snapshot_t *s) {
         printf("HTS221   T=");
         print_fixed(s->hts221.temp_centi_c);
         printf("C RH=");
-        print_fixed((int32_t)s->hts221.humidity_centi_rh);
-        printf("%%\r\n");
+        if (s->hts221.humidity_valid) {
+            print_fixed((int32_t)s->hts221.humidity_centi_rh);
+            printf("%%\r\n");
+        } else {
+            printf("INVALID (clipped=");
+            print_fixed((int32_t)s->hts221.humidity_centi_rh);
+            printf("%% raw=%d interp=", (int)s->hts221.humidity_raw);
+            print_fixed(s->hts221.humidity_unclamped_centi_rh);
+            printf("%%)\r\n");
+        }
     } else {
         printf("HTS221   NOT_READY / ERROR / NOT_INSTALLED\r\n");
     }
@@ -182,6 +192,7 @@ int main(void) {
     // Sense HAT V1 displays a bright rainbow until its ATtiny88
     // LED framebuffer is cleared. Blank it before the CDC wait.
     bool sense_hat_led_off = sense_hat_led_clear(SENSOR_BUS);
+    sense_hat_marquee_init(SENSOR_BUS, sense_hat_led_off);
 
     sleep_ms(3000); // time for a USB CDC terminal to connect
     printf("\r\nRP2350 Environment Monitor - all sensor acquisition\r\n");
@@ -210,15 +221,23 @@ int main(void) {
     if (!present.ak09916) {
         printf("WARN: Magnetometer bypass not available; 6-axis IMU may still work.\r\n");
     }
+    printf("LED controls: type 'led demo', 'led TEXT', 'led b 1..4' or 'led off'\r\n");
     absolute_time_t next = get_absolute_time();
     while (true) {
         sensor_snapshot_t reading;
         sensor_manager_sample(&reading);
         output(&reading);
+
         next = delayed_by_ms(next, 1000);
-        if (absolute_time_diff_us(get_absolute_time(), next) > 0) {
-            sleep_until(next);
-        } else {
+        // Nonblocking marquee and CDC console, paced entirely from the
+        // main loop: no timer ISR may issue an I2C transfer.
+        // The existing 1 Hz sensor acquisition remains highest priority.
+        while (absolute_time_diff_us(get_absolute_time(), next) > 0) {
+            sense_hat_console_poll();
+            sense_hat_marquee_poll();
+            sleep_ms(5);
+        }
+        if (absolute_time_diff_us(get_absolute_time(), next) < 0) {
             printf("WARN: sampling cycle exceeded 1 second\r\n");
             next = get_absolute_time();
         }
