@@ -137,6 +137,45 @@ reset. The deliberate ~1.6-second diagnostic may delay a 1Hz sample.
 
 - [ ] Re-test following complete USB power disconnect / cold power-on;
       inspect AV_CONF before writing any configuration.
-- [ ] Run `hts avgtest`, compare eight Hraw values against earlier 0x8000
-      and intermittent 0x4065.
-- [ ] Confirm `AV_CONF restored` and previous sensor output remains intact.
+- [x] Run `hts avgtest`: three 8-slot trials, 22 raw measurements and two NOT_READY events. All measured humidity raw values remain invalid (-32754..-31654).
+- [x] All three trials report `DONE; AV_CONF restored to 0x3F`; other sensors continue reporting.
+
+### 2026-10-28 averaging comparison — ON-DEVICE COMPLETE
+
+**HTS221 RH channel: INVALID; software averaging adjustment NOT A FIX.**
+
+In the 2026-10-28 user-supplied log, three manual `hts avgtest`
+executions switched `AV_CONF` from observed `0x3F` (T=256/RH=512
+internal averages) to `0x1B` (T=16/RH=32), collected 22 raw RH
+values (`-32754` to `-31654`, mean ~`-32237`) and restored
+`0x3F` with readback each time. Two sample slots returned
+`NOT_READY status=0x00`; these alone are not evidence of a dead device.
+
+Regular HTS221 sampling ranged from raw -31279 to -32768 after the
+new capture started, with interpreted RH ~132..137% (invalid), while
+BME280 RH was ~51.8..54.3%. HTS221 temperature ~23.1..23.3°C
+tracked BME280 ~23.1..23.2°C. The humidity raw signal can change,
+but is far beyond this unit's factory calibration points:
+
+- H0: 29.5%RH / raw -5
+- H1: 68.5%RH / raw -11898
+- Predicted raw at BME280 ~52..54%RH: ~-6866..-7476
+  (comparison is indicative; BME280 is not a calibrated humidity standard).
+
+Negative calibration raw values are allowed; no arbitrary change to
+coefficients or offset should be applied. The root cause is unresolved,
+but sensor humidity measurement chain / element is substantially more
+suspect than I2C byte order, factory-calibration decoding or
+AV_CONF averaging. Treat HTS221 RH as unusable, retain HTS221 T, and
+keep BME280 RH as the only current humidity source for SGP40
+compensation. No more firmware tuning is justified by this evidence.
+
+The ~0.93, ~0.93 and ~1.02 second `WARN` events coincide with
+the explicit >1.6 second manual diagnostics, and are not evidence
+of failure of the normal 1Hz scheduler. One HTS221 NOT_READY
+following a manual test recovered on the next record.
+
+**Remaining optional hardware isolation**: verify an actual full power
+disconnect before inferring anything from `AV_CONF=0x3F` on restart,
+or compare the Sense HAT module under a known humidity stimulus
+with an independent reference. Do not change firmware calibration.

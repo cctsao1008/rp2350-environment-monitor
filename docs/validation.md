@@ -229,4 +229,25 @@ The LED marquee code itself is unchanged in this follow-up.
 - [x] Normal 1Hz cadence: 50 of 51 observed intervals = 1000ms;
       one 1035ms interval followed a manual diagnostic and a 34.2ms lateness warning.
 - [ ] Cold power-cycle, then `hts diag`, inspect AV_CONF default.
-- [ ] `hts avgtest` controlled 0x1B comparison and rollback hardware PASS.
+- [x] `hts avgtest` controlled 0x1B comparison and rollback hardware PASS (three runs, 22 Hraw samples).
+
+## 2026-10-28 HTS221 averaging experiment closure
+
+- [x] Three explicit `hts avgtest` runs: temporary `AV_CONF=0x1B` (factory
+      default), confirmed return to original `0x3F` each time.
+- [x] 22 valid raw humidity register readings under 0x1B:
+      min -32754, max -31654; **all invalid against factory calibration**.
+- [x] Two NOT_READY sample slots during the manual tests, without lasting
+      impact on subsequent environmental-sensor acquisition.
+- [x] HTS221 temperature responsive, but humidity trends into the signed
+      16-bit lower limit (-32768); BME280 indicates ~52..54% RH.
+- [x] Exactly three large scheduler lateness warnings (>0.9s) attributable
+      to 1.6s manual tests; normal nominal 1Hz samples unaffected.
+- [ ] Independent humidity reference / controlled dry-air test (optional).
+- [ ] Verify true power removal before treating post-reset AV_CONF=0x3F
+      as evidence of an abnormal power-on default.
+
+**Verdict: averaging hypothesis ruled out as sufficient cause.**
+HTS221 humidity remains INVALID; do not use RH in fusion, logging as
+valid data, or SGP40 compensation. Retain BME280 RH. Preserve source
+and diagnostic functionality; no additional FW tuning scheduled.
