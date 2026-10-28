@@ -330,3 +330,18 @@ sensor drivers remain enabled, initialized, and sampled at 1Hz;
 This is a **console output filter**, not a sensor power-down or a change
 to the shared I2C bus. LED startup blanking remains enabled. Set
 `HTS221_ONLY_OUTPUT=0` to restore the prior full sensor telemetry.
+
+
+### 2026-10-28 HTS221 humidity observation update
+
+**Newer evidence supersedes earlier "persistently invalid" hardware
+status:** after external hair-dryer warm air, HTS221 humidity raw moved
+from `0x8000 (-32768)` to around `-7616..-7683`, and the
+unchanged factory calibration yielded ~54.5–54.8%RH with
+`RH_VALID=YES`. The chip remained hot (~54–57°C). This demonstrates
+that the raw output is **not irreversibly stuck**, but does **not**
+yet prove humidity accuracy at room temperature. ST describes the
+heater's role in condensation recovery. See
+`docs/validation.md` for the remaining ambient cool-down,
+comparison and power-cycle tests. Do not overwrite factory trim
+or force a software offset solely from the heated readings.

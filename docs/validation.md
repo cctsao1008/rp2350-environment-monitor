@@ -385,3 +385,70 @@ ATtiny88 firmware or LED supply/enable hardware must be changed.
 **Important:** HTS221 Rev5 Table 15 default AV_CONF=0x1B; the user
 observed AV_CONF=0x3F after init. This must be isolated BEFORE assuming
 the source of the difference. The new preinit snapshot is read-only.
+
+## 2026-10-28 NEW EVIDENCE — HTS221 humidity raw RECOVERED after external warm air
+
+**Supersedes the earlier "RH stuck at -32768" *current-state* finding,
+but does not invalidate the earlier tests.** The user applied a hair
+dryer (external warm air) and immediately shared a live USB CDC capture.
+The firmware, original calibration, and BOOT/ONE_SHOT test code were
+unchanged.
+
+| Evidence | Before warm air | After warm air |
+| --- | --- | --- |
+| Humidity raw | -32768 / 0x8000 (repeated) | -7616 @ ~8.5s; -7683 @ ~13.5s |
+| Humidity interpolation | 136.94%RH / INVALID | ~54.46..54.81%RH / VALID |
+| HTS221 temperature | ~26.4°C | 57.33°C declining to 54.10°C |
+| Internal heater | Prior 3x 10-second tests, no recovery | OFF, verified; no automatic heating |
+| Factory calibration | H0=29.5, H1=68.5, R0=-5, R1=-11898 | Unchanged |
+
+The raw humidity output **is not permanently pinned** to 0x8000,
+and using the existing factory calibration produces bounded values
+after external heating. The earlier proposal to alter factory calibration
+was not required to change Hraw, and changing these coefficients would
+never directly change the raw ADC output.
+
+**Critical limitation:** RH_VALID=YES here means only a *plausible
+numeric interpolation*, not proven measurement accuracy. The device
+was 54..57°C, far above local baseline ~26°C and beyond the 15..40°C
+range of the datasheet's tight temperature accuracy specification.
+Humidity readings around 54.6%RH during strong heating cannot by
+themselves validate ambient RH: the local air and sensed surface can
+have different temperature, water content and thermal time constants.
+
+ST sources:
+- HTS221 Rev5 Sec. 7.4: onboard heater for recovery from condensation,
+  measure *after* heater is off
+  https://www.st.com/resource/en/datasheet/hts221.pdf
+- ST MEMS engineer, 2020 heater explanation:
+  https://community.st.com/mems-sensors-48/is-there-an-app-note-or-other-documentation-related-to-how-when-to-appropriately-use-the-heater-bit-on-the-hts221-regards-regards-43760
+- Rev5 Sec 4.1: re-hydration after soldering at 25°C/55%RH for 3 days
+  or 70%RH for 12 hours; such numbers apply to soldering recovery,
+  not a prescribed requirement for this warm-air experiment.
+
+**Revised diagnosis:** response to external warmth is strong evidence
+of a *thermally reversible* condition; retained moisture/condensation
+or contamination is plausible but unproven. This is **not** proof of
+permanent semiconductor damage, and we still cannot distinguish
+sensor-film behavior from PCB leakage or localized thermal effects.
+
+- [x] Confirm Hraw escapes the extreme lower endpoint with no
+      calibration rewrite; derived RH changes accordingly.
+- [x] Confirm heater remains OFF in warm-air capture.
+- [ ] Let the board return to ambient temperature without additional
+      directed heating; capture Hraw, RH, T for at least 15-30 minutes.
+- [ ] Compare settled values to the nearby BME280 measured at the
+      same location/temperature (reference is comparative, not a
+      laboratory accuracy standard).
+- [ ] Repeat at ambient after a real full power disconnect and
+      reapply; inspect HTS221 PREINIT 0x10, 0x20, 0x21 and 0x22.
+- [ ] Apply a **non-condensing** humidity change and check monotonic
+      direction and repeatability of Hraw across multiple points.
+- [ ] If RH relapses at ambient, preserve logs and distinguish thermal
+      dependence versus humidity-dependent behavior before diagnosis.
+- [ ] Avoid more hair-dryer exposure pending cool-down observation.
+
+No firmware change is needed for this observation. HTS221-only output
+and the validity flag are preserved; the observation is evidence
+that future software-calibration proposals must first confirm actual
+dynamic RH response.
