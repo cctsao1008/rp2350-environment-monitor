@@ -2,7 +2,7 @@
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
-**Status:** P0 partial hardware validation (2026-10-28). ELF build, PICOBOOT flash/verify, USB CDC, and BME280 chip ID have passed. Other sensors, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
+**Status:** P0 partial hardware validation (2026-10-28). ELF build, PICOBOOT flash/verify, USB CDC, BME280 chip ID, and SGP40 serial/CRC have passed. TSL2591/LTR390/ICM20948 identity reads, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
 
 ## Baseline architecture
 
@@ -11,7 +11,7 @@ Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environme
 - **Build:** CMake + Ninja + Arm GCC, with preinstalled host tools.
 - **Programming:** `picotool` loading an **ELF** through PICOBOOT; update/verify/execute. No MSC file-copy update path.
 - **Console:** USB CDC through Pico SDK stdio.
-- **P0 firmware:** periodic I2C read-probe (diagnostic only), BME280 chip-ID check, and SGP40 serial-number command with CRC-8 validation.
+- **P0 firmware:** periodic I2C read-probe (diagnostic only), BME280 chip-ID check, SGP40 serial-number command with CRC-8 validation, and targeted ID reads for TSL2591/LTR390/ICM20948.
 
 ## Clone
 
@@ -103,7 +103,7 @@ docs/validation.md     acceptance criteria and test evidence
 
 ## Follow-up development
 
-P0: complete the remaining hardware validation, including SGP40 serial-number CRC, offline incremental build, and automatic runtime-reset flashing. BME280 chip ID and PICOBOOT flash/verify have passed.
+P0: complete the remaining hardware validation, including three additional sensor identity checks, offline incremental build, and automatic runtime-reset flashing. BME280 chip ID, SGP40 serial/CRC and PICOBOOT flash/verify have passed.
 
 P1: integrate TSL25911, LTR390, SGP40 and ICM20948 drivers; implement data collection and VOC Index.
 

@@ -13,6 +13,13 @@
 #define BME280_ADDR 0x76u
 #define BME280_CHIP_ID_REG 0xD0u
 #define SGP40_ADDR 0x59u
+#define TSL2591_ADDR 0x29u
+#define TSL2591_DEVICE_ID_CMD 0xB2u // COMMAND (0xA0) + ID register (0x12)
+#define LTR390_ADDR 0x53u
+#define LTR390_PART_ID_REG 0x06u
+#define ICM20948_ADDR 0x68u
+#define ICM20948_BANK_SEL_REG 0x7Fu
+#define ICM20948_WHO_AM_I_REG 0x00u
 #define I2C_TIMEOUT_US 20000u
 
 // Sensirion SGP40 CRC-8: polynomial 0x31, initial value 0xFF.
@@ -46,7 +53,7 @@ static void scan_i2c(void) {
             ++responders;
         }
     }
-    printf("Read-probe responders: %u (not a sensor count)\r\n", responders);
+    printf("Read-probe responders: %u (not a sensor count)\\r\\n", responders);
 }
 
 static void check_bme280(void) {
@@ -69,6 +76,68 @@ static void check_bme280(void) {
 
     printf("BME280: chip ID 0x%02X (%s)\r\n",
            chip_id, chip_id == 0x60u ? "PASS" : "UNEXPECTED");
+}
+
+
+// Read a single-byte identity register via command/register-pointer write
+// followed by a repeated-START read. This does not configure measurements.
+static bool read_identity_reg(uint8_t address, uint8_t reg, uint8_t *value) {
+    int rc = i2c_write_timeout_us(
+        SENSOR_I2C, address, &reg, 1, true, I2C_TIMEOUT_US);
+    if (rc != 1) {
+        printf("I2C 0x%02X: select 0x%02X failed (%d)\r\n", address, reg, rc);
+        return false;
+    }
+    rc = i2c_read_timeout_us(
+        SENSOR_I2C, address, value, 1, false, I2C_TIMEOUT_US);
+    if (rc != 1) {
+        printf("I2C 0x%02X: read 0x%02X failed (%d)\r\n", address, reg, rc);
+        return false;
+    }
+    return true;
+}
+
+static void check_tsl2591(void) {
+    // ams TSL2591: command byte 0xB2 selects read-only ID register 0x12.
+    uint8_t id = 0;
+    if (!read_identity_reg(TSL2591_ADDR, TSL2591_DEVICE_ID_CMD, &id)) {
+        printf("TSL2591: ID read FAIL\r\n");
+        return;
+    }
+    printf("TSL2591: ID 0x%02X (%s)\r\n",
+           id, id == 0x50u ? "PASS" : "UNEXPECTED");
+}
+
+static void check_ltr390(void) {
+    // Bits [7:4] are the fixed 0xB part number; [3:0] is revision.
+    uint8_t id = 0;
+    if (!read_identity_reg(LTR390_ADDR, LTR390_PART_ID_REG, &id)) {
+        printf("LTR390: PART_ID read FAIL\r\n");
+        return;
+    }
+    printf("LTR390: PART_ID 0x%02X (part 0x%X, rev 0x%X) (%s)\r\n",
+           id, (unsigned)(id >> 4), (unsigned)(id & 0x0Fu),
+           (id >> 4) == 0x0Bu ? "PASS" : "UNEXPECTED");
+}
+
+static void check_icm20948(void) {
+    // Select user bank 0 before reading WHO_AM_I; do not assume the
+    // previous firmware or driver left the active bank at zero.
+    const uint8_t select_bank0[] = {ICM20948_BANK_SEL_REG, 0x00u};
+    int rc = i2c_write_timeout_us(
+        SENSOR_I2C, ICM20948_ADDR, select_bank0,
+        sizeof(select_bank0), false, I2C_TIMEOUT_US);
+    if (rc != (int)sizeof(select_bank0)) {
+        printf("ICM20948: bank 0 select failed (%d)\r\n", rc);
+        return;
+    }
+    uint8_t id = 0;
+    if (!read_identity_reg(ICM20948_ADDR, ICM20948_WHO_AM_I_REG, &id)) {
+        printf("ICM20948: WHO_AM_I read FAIL\r\n");
+        return;
+    }
+    printf("ICM20948: WHO_AM_I 0x%02X (%s)\r\n",
+           id, id == 0xEAu ? "PASS" : "UNEXPECTED");
 }
 
 static void check_sgp40(void) {
@@ -124,6 +193,9 @@ int main(void) {
         scan_i2c();
         check_bme280();
         check_sgp40();
+        check_tsl2591();
+        check_ltr390();
+        check_icm20948();
         sleep_ms(5000);
     }
 }
