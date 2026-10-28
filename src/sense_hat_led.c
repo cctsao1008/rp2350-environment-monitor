@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "hardware/i2c.h"
+#include "pico/time.h"
 
 #define SENSE_HAT_LED_ADDR 0x46u
 #define SENSE_HAT_ID_REG  0xF0u
@@ -38,4 +39,28 @@ bool sense_hat_led_clear(i2c_inst_t *bus) {
         if (written != (int)sizeof(packet)) return false;
     }
     return true;
+}
+
+// A reset of RP2350 does not necessarily reset the Sense HAT's ATtiny88.
+// Conversely, on power-on the ATtiny88 may load its default LED pattern
+// after our earliest successful clear. Blank as soon as I2C is available,
+// then repeat during the pre-existing USB CDC connection wait.
+//
+// Scheduled offsets measured from the first attempt, in milliseconds.
+// The last clear is at +3000ms, replacing main()'s old sleep_ms(3000).
+// No EEPROM writes or undocumented I2C accesses occur.
+// NOTE: This cannot prevent a momentary rainbow BEFORE I2C becomes ready.
+bool sense_hat_led_clear_startup(i2c_inst_t *bus) {
+    static const uint16_t offsets_ms[] = {
+        0u, 50u, 150u, 350u, 750u, 1500u, 3000u
+    };
+    absolute_time_t started = get_absolute_time();
+    bool final_clear_succeeded = false;
+    for (unsigned i = 0; i < sizeof(offsets_ms) / sizeof(offsets_ms[0]); ++i) {
+        sleep_until(delayed_by_ms(started, offsets_ms[i]));
+        // Keep trying even after an early success: ATtiny88 startup may
+        // repopulate the framebuffer while RP2350 continues booting.
+        final_clear_succeeded = sense_hat_led_clear(bus);
+    }
+    return final_clear_succeeded;
 }

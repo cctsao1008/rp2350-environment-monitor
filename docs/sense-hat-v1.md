@@ -346,3 +346,18 @@ At the end of the captured text, the host terminal reported
 `Error reading from serial device` after sample #161; no accompanying
 boot/reset banner establishes RP2350 reset or a firmware fault.
 This is unresolved and independent of the completed heater experiment.
+
+
+## LED matrix default OFF across reset and power-up
+
+A one-shot LED clear already passed real-hardware testing, but a full
+power cycle can bring the Sense HAT ATtiny88 online later than RP2350.
+The boot routine now clears its 192-byte volatile framebuffer at offsets
+0, 50, 150, 350, 750, 1500 and 3000 milliseconds, using the existing
+controller ID check (0xF0 = 0x73). This runs before scanning sensors or
+starting the console/telemetry loop, and substitutes for the former
+3-second CDC wait. Its result controls marquee availability.
+The LED will remain OFF unless the user issues a later `led demo` or
+`led TEXT` command. **No firmware-only guarantee of a flash-free
+instantaneous power-on** is possible while the ATtiny88 contains its
+built-in rainbow pattern. New reset and cold-power tests pending.

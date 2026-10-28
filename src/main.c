@@ -193,12 +193,12 @@ int main(void) {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    // Sense HAT V1 displays a bright rainbow until its ATtiny88
-    // LED framebuffer is cleared. Blank it before the CDC wait.
-    bool sense_hat_led_off = sense_hat_led_clear(SENSOR_BUS);
+    // The ATtiny88 can initialize later than RP2350 on cold power-on,
+    // or retain an old LED frame when only RP2350 is reset. Clear as
+    // early as possible and several more times over the existing
+    // 3-second USB CDC connect interval. Startup display default: OFF.
+    bool sense_hat_led_off = sense_hat_led_clear_startup(SENSOR_BUS);
     sense_hat_marquee_init(SENSOR_BUS, sense_hat_led_off);
-
-    sleep_ms(3000); // time for a USB CDC terminal to connect
     printf("\r\nRP2350 Environment Monitor - all sensor acquisition\r\n");
     printf("Board: waveshare_rp2350_pizero, I2C1 GPIO2/3, 100kHz\r\n");
     printf("Sense HAT V1 LED matrix: %s\r\n",

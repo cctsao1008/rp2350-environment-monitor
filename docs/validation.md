@@ -309,3 +309,24 @@ or measurement algorithms.
 **Default FW disposition:** disable repetitive 3-cycle heater test
 on future boots; keep 5s autonomous logs, HTS221 invalid masking, and
 all other sensor drivers.
+
+
+## Sense HAT V1 LED OFF at RP2350 reset / cold power-on (new boot code)
+
+**Source implemented; both reboot modes pending hardware verification.**
+The previously working single startup LED clear was expanded to seven
+I2C0x46 identity-checked volatile framebuffer clears (t=0, 50, 150, 350,
+750, 1500, 3000ms relative to early boot). This replaces, rather than
+adds to, the original three-second USB CDC connect wait. The final clear
+result is used to enable the optional `led demo` console controls.
+
+- [ ] RP2350-only software reset: matrix returns to OFF even after a
+      manual `led demo` was running.
+- [ ] Full USB disconnect / power-on: matrix ends OFF without a command.
+- [ ] No LED pattern is reintroduced after ATtiny88 startup.
+- [ ] `led demo` continues to work; sensor cadence remains 1 Hz.
+
+**Hardware constraint:** Firmware cannot ensure zero light at the exact
+instant of power application; ATtiny88 may display its built-in default
+pattern before RP2350 can talk to it. For strict instantaneous darkness,
+ATtiny88 firmware or LED supply/enable hardware must be changed.

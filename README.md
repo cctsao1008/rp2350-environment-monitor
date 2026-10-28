@@ -299,3 +299,18 @@ the ordinary 1Hz sensor records continue. The heater test's source remains
 available behind the compile-time `HTS_AUTO_ENABLE_HEATING` setting,
 default `0`. Reenabling it is an explicit engineering change, not a
 required runtime command. See `docs/sense-hat-v1.md`.
+
+
+### Sense HAT V1 startup LED policy
+
+The LED matrix is **OFF by default after each RP2350 reset or full
+power-on**. Early boot makes seven controller-ID-checked clear attempts
+across the existing ~3-second USB CDC startup window, including a final
+clear after the ATtiny88 should have finished initializing. This
+addresses delayed startup of the ATtiny88 as well as RP2350-only reset
+with an old LED framebuffer. No special USB CDC command is needed.
+The `led demo` and manual text marquee remain available afterwards.
+
+A brief flash of the ATtiny88's built-in default image during true cold
+power-up cannot be ruled out with RP2350 firmware alone; strict
+power-on darkness would require ATtiny firmware or LED power control.
