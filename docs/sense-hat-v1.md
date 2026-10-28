@@ -652,3 +652,61 @@ Pending:
 - [ ] True all-supplies-off startup vs RP2350 reset, record PREINIT
       AV_CONF and CTRL1/2/3.
 - [ ] Hardware root cause remains undetermined.
+
+
+## 2026-10-28 extended cooldown continuation: sample #714, temperature plateau
+
+The follow-on user-provided USB CDC capture includes **713** complete
+one-second output frames (#2..#714; 4907..716907ms uptime).
+**712/712** frame intervals are 1000ms; the final file ends with a
+stray partial `[` after the last complete frame, so no subsequent
+sample can be inferred.
+
+| Segment | Samples | Mean T | Mean interpolated RH | Mean Hraw |
+| --- | ---: | ---: | ---: | ---: |
+| First valid output range | #2..#220 (219) | 39.47°C | 75.36% | not printed at 1Hz |
+| Invalid interval 1 | #221..#501 (281) | 29.16°C | 119.22% | -27364 |
+| Invalid interval 2 | #502..#714 (213) | 27.79°C | 131.27% | -31041 |
+| Near-stable tail | #601..#714 (114) | 27.73°C | 132.09% | -31288 |
+| Last 65 | #650..#714 (65) | **27.72°C** | **132.20%** | **-31323** |
+
+**494 consecutive samples (#221..#714) are invalid**, because the
+factory-calibrated humidity interpolation exceeds 100%RH. The last 65
+records span T=27.66..27.77°C and RH=131.62..133.69% (all invalid).
+The latest record (#714) is T=27.73°C, Hraw=-31239, interpolated
+RH=131.92%. The most negative raw captured in this continuation is
+-31779 (#694), still **989 counts above** int16 minimum -32768; there
+is **no actual -32768 raw sample** in the invalid portion of this
+capture.
+
+Independent read diagnostics at #700:
+`burst_raw=-31219 single_L=0x0D single_H=0x86`
+agree on the two's-complement value, with
+`STATUS=03 CTRL1=86 CTRL2=00 AV_CONF=3F`. This corroborates a
+changing sensor raw stream, not a stuck I2C response or wrong LSB/MSB.
+
+**Revised finding:** The sensor-reported temperature now has a
+near-stable plateau around 27.7°C, but large positive humidity
+interpolation error (~32 points above the physical upper boundary)
+persists. It is not adequately explained as *only* the first seconds
+of temperature cooldown. However, film equilibration, ambient
+humidity dynamics, condensation and board leakage remain
+uncontrolled; numerical RH error alone cannot uniquely locate
+the underlying failure mechanism. In particular, Hraw variation
+under a cooling experiment does NOT establish response to independent
+changes in RH at constant temperature.
+
+- [x] Firmware still samples at 1Hz in this trace; 5s observe-only
+      and internal heater disabled remain present.
+- [x] Hraw has **not** returned to its original `0x8000` endpoint;
+      it is dynamic but much closer to the negative full-scale limit.
+- [x] Confirm abnormal reading persists during ~114-second
+      near-stable temperature window.
+- [ ] Co-located BME280 reference concurrently printed for
+      *temperature-stabilized* HTS221 and BME280; currently hidden
+      in HTS221-only console mode.
+- [ ] Stable-temperature non-condensing RH-step experiment with
+      reversal, to test whether Hraw actually tracks water vapor.
+- [ ] Cold power-removal and PREINIT-default comparison.
+- [ ] NO changes to firmware or factory calibration as a result
+      of this observational log.
