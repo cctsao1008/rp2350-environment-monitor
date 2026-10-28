@@ -2,7 +2,7 @@
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
-**Status:** P0 five sensor identities PASS on hardware, and the earlier P1 BME280-only firmware passed a 33-sample functional test. **This new all-sensor firmware is implemented in source but still requires a build and device test**. See [P1 all-sensor integration](docs/p1-all-sensors.md) and [validation record](docs/validation.md).
+**Status:** P0 five sensor identities PASS; P1 all-sensor initial data-acquisition PASS on hardware (2026-10-28), with 6/6 INIT OK and nine consecutive 1 Hz USB CDC samples. **Remaining:** SGP40 VOC Index after warmup, LTR390 UV stimulus response, lux/IMU calibration, offline incremental build and long-duration validation. See [P1 all-sensor evidence](docs/p1-all-sensors.md) and [validation record](docs/validation.md).
 
 ## Baseline architecture
 
@@ -12,7 +12,7 @@ Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environme
 - **Programming:** `picotool` loading an **ELF** through PICOBOOT; update/verify/execute. No MSC file-copy update path.
 - **Console:** USB CDC through Pico SDK stdio.
 - **P0 diagnostics:** one boot-time I2C read-probe (diagnostic only) plus all five device-specific identity reads.
-- **P1 all-sensor integration (not yet hardware-validated):** BME280 T/RH/P, TSL2591 lux, LTR390 UV/ALS, SGP40 SRAW_VOC/VOC Index, ICM20948 6-axis plus AK09916 magnetometer, 1 Hz Sensor Manager/USB CDC. USB CDC fixed-point output.
+- **P1 all-sensor integration (initial data acquisition hardware PASS):** BME280 T/RH/P, TSL2591 lux, LTR390 UV/ALS, SGP40 SRAW_VOC/VOC Index, ICM20948 6-axis plus AK09916 magnetometer, 1 Hz Sensor Manager/USB CDC. USB CDC fixed-point output.
 
 ## Clone
 
@@ -110,7 +110,7 @@ docs/validation.md     acceptance criteria and test evidence
 
 P0 Sensor Identification: **PASS (5/5)**. Remaining infrastructure qualification: offline incremental build and automatic runtime-reset flashing (including checking MSC enumeration policy).
 
-P1: All five sensor acquisition paths are now integrated in source. [P1 all-sensor design and required verification](docs/p1-all-sensors.md). The older BME280-only 33-sample on-device test remains documented in [BME280 evidence](docs/p1-bme280.md).
+P1: All five sensor acquisition paths plus AK09916 are integrated and producing real USB CDC data on hardware; [measurements and remaining validation](docs/p1-all-sensors.md). The older BME280-only 33-sample on-device test remains documented in [BME280 evidence](docs/p1-bme280.md).
 
 P2: timestamped USB CDC output, persistent microSD logging and optional on-device display.
 

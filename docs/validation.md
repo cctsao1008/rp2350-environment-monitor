@@ -65,22 +65,24 @@ User-reported 33 sequential lines of compensated BME280 data:
 
 No I2C/data errors appear in this captured sample. This is an initial **functional** validation only; keep accuracy, environmental stimulus-response, long-duration reliability and offline/no-MSC behavior open.
 
-## P1 all-sensor firmware (source integration, not yet validated on this commit)
+## P1 all-sensor firmware (initial hardware function PASS, 2026-10-28)
 
-- [ ] TSL2591 compensated Lux output and saturation handling on hardware.
-- [ ] LTR390 switched UV/ALS measurement, UVI/Lux on hardware.
-- [ ] SGP40 RH/T-compensated SRAW and steady VOC Index after warmup on hardware.
-- [ ] ICM20948 accel/gyro data and AK09916 magnetometer on hardware.
-- [ ] Full integrated 1 Hz sampling and USB CDC error reporting on hardware.
+- [x] TSL2591 raw counts and estimated Lux reporting on hardware (approx 226 Lux); saturation and calibration unverified.
+- [x] LTR390 ALS (3047-3049 counts), estimated Lux (~609), UV=0 visible on hardware; UV stimulus response and accuracy unverified.
+- [x] SGP40 SRAW data present, 65535 first sample and 24663 by ninth, algorithm warming indication.
+- [ ] VOC Index after 45-second startup and response under stimulus; first SRAW at 65535 needs steady-state confirmation.
+- [x] ICM20948 accel/gyro and AK09916 magnetic XYZ data present (static gravity near 1g); motion/bias/calibration test pending.
+- [x] Nine 1 Hz integrated USB CDC records with 1000 ms uptime increments, no errors observed in captured excerpt.
+- [ ] Error handling/failure injection and extended stability.
 
 Details: [P1 all-sensor validation plan](p1-all-sensors.md).
 
 ## Future P1 / P2
 
 - [x] BME280 compensated-data acquisition: initial on-target functional test PASS (33 successive readings). See [P1 BME280 results](p1-bme280.md).
-- [ ] Other sensor measurement drivers, calibration and data validity.
+- [x] Remaining sensor drivers supply initial real data on the integrated board (9 records); calibration and stimulus-response not yet qualified.
 - [ ] VOC Index with temperature/humidity compensation.
-- [ ] Timestamped USB CDC telemetry.
+- [x] USB CDC sample counter and millisecond uptime provided (not wall-clock time).
 - [ ] microSD data logging.
 
 Do not report PASS without corresponding captured hardware evidence.
