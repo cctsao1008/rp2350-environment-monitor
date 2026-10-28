@@ -53,6 +53,7 @@ static uint32_t hts_auto_next_log_ms;
 static uint32_t hts_auto_next_off_retry_ms;
 static unsigned hts_auto_cycles_completed;
 static bool hts_auto_have_raw;
+static bool hts_auto_last_rh_valid;
 static int16_t hts_auto_last_hraw;
 static int16_t hts_auto_last_traw;
 
@@ -132,6 +133,7 @@ bool sense_hts221_init(i2c_inst_t *bus) {
     hts_invalid_count = 0;
     hts_auto_phase = HTS_AUTO_DISABLED;
     hts_auto_have_raw = false;
+    hts_auto_last_rh_valid = false;
     if (!match_id(bus, HTS_ADDR, 0xBCu)) return false;
     uint8_t cal[16] = {0};
     if (!sensor_i2c_read(bus, HTS_ADDR, (uint8_t)(0x30u | ST_BURST_FLAG),
@@ -188,6 +190,7 @@ bool sense_hts221_read(sense_hts221_sample_t *s) {
     s->humidity_unclamped_centi_rh = rh;
     s->humidity_valid = rh >= 0 && rh <= 10000 &&
                         humidity_raw != (int16_t)0x8000u;
+    hts_auto_last_rh_valid = s->humidity_valid;
     if (!s->humidity_valid) {
         ++hts_invalid_count;
         if (hts_invalid_count == 1u || (hts_invalid_count % 60u) == 0u)
@@ -645,6 +648,7 @@ void sense_hts221_dump(void) {
 void sense_hts221_recovery_init(void) {
     hts_auto_phase = HTS_AUTO_DISABLED;
     hts_auto_have_raw = false;
+    hts_auto_last_rh_valid = false;
     hts_auto_cycles_completed = 0u;
     if (!hts_bus) {
         printf("HTS221 AUTO: SKIPPED (not initialized)\r\n");
@@ -726,6 +730,12 @@ void sense_hts221_recovery_poll(void) {
     // stream. No extra RH/T register read occurs while heater is ON.
     if (hts_auto_reached(now, hts_auto_next_log_ms)) {
         hts_auto_next_log_ms = now + HTS_AUTO_LOG_MS;
+        unsigned log_cycle = hts_auto_cycles_completed;
+        if (hts_auto_phase == HTS_AUTO_BASELINE ||
+            hts_auto_phase == HTS_AUTO_HEATING ||
+            hts_auto_phase == HTS_AUTO_OFF_FAULT) {
+            if (log_cycle < HTS_AUTO_MAX_CYCLES) ++log_cycle;
+        }
         const char *stage = "DONE";
         if (hts_auto_phase == HTS_AUTO_BASELINE) stage = "BASELINE";
         else if (hts_auto_phase == HTS_AUTO_HEATING) stage = "HEATING";
@@ -738,13 +748,13 @@ void sense_hts221_recovery_poll(void) {
             printf("HTS221 AUTO: uptime=%lums phase=%s cycle=%u/%u "
                    "HTS_T_RH=WITHHELD\r\n",
                    (unsigned long)now, stage,
-                   hts_auto_cycles_completed + 1u, HTS_AUTO_MAX_CYCLES);
+                   log_cycle, HTS_AUTO_MAX_CYCLES);
         } else if (hts_auto_have_raw) {
             printf("HTS221 AUTO: uptime=%lums phase=%s cycle=%u/%u "
                    "last_Hraw=%d last_Traw=%d "
                    "(same latest 1Hz sample)\r\n",
                    (unsigned long)now, stage,
-                   hts_auto_cycles_completed, HTS_AUTO_MAX_CYCLES,
+                   log_cycle, HTS_AUTO_MAX_CYCLES,
                    (int)hts_auto_last_hraw, (int)hts_auto_last_traw);
         } else {
             printf("HTS221 AUTO: uptime=%lums phase=%s "
@@ -770,6 +780,14 @@ void sense_hts221_recovery_poll(void) {
     if (!hts_auto_reached(now, hts_auto_deadline_ms)) return;
 
     if (hts_auto_phase == HTS_AUTO_BASELINE) {
+        // Do not heat a working sensor, and stop cycling early if
+        // RH has returned to the valid 0..100% range after cooldown.
+        if (hts_auto_have_raw && hts_auto_last_rh_valid) {
+            printf("HTS221 AUTO: RH has returned within valid range; "
+                   "no further heating. HEATER OFF\r\n");
+            hts_auto_phase = HTS_AUTO_DONE;
+            return;
+        }
         uint8_t ctrl1 = 0, ctrl2 = 0, id = 0;
         if (!sensor_i2c_read(hts_bus, HTS_ADDR, 0x0Fu, &id, 1u) ||
             !hts_auto_read_ctrl(&ctrl1, &ctrl2) ||

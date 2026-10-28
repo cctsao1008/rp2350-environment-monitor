@@ -273,8 +273,8 @@ No terminal commands required. After HTS221 initialization, Firmware
 automatically performs a **finite** three-cycle heater comparison:
 5s baseline, 10s heater ON, 30s cooldown per cycle. Every 5s it emits
 an `HTS221 AUTO` status line (including cached raw values when not
-heating/cooling). Once finished, logging continues every 5s with heater
-OFF. Existing environmental measurements stay on their 1Hz schedule,
+heating/cooling). Stop heating early if RH becomes valid after cooldown. Once finished,
+logging continues every 5s with heater OFF. Existing environmental measurements stay on their 1Hz schedule,
 except HTS221 T/RH are withheld during heater and cooldown. This is a
 short-pulse diagnostic and is **not** the minutes-long ST-recommended
 condensation recovery procedure.

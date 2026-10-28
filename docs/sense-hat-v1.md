@@ -274,8 +274,9 @@ non-blocking state machine automatically runs the following:
 - **30 s cooldown** with heater turned OFF and verified. HTS221 T/RH
   remain withheld during the cooldown so heater-contaminated values
   are not represented as ambient.
-- Repeat the bounded cycle at most **three times per boot**, then
-  keep the heater OFF forever until firmware restarts.
+- Repeat the bounded cycle at most **three times per boot**, stopping
+  early if RH returns to the 0..100% valid range after cooldown. Then
+  keep the heater OFF until firmware restarts.
 - Every **5 seconds** a separate `HTS221 AUTO` line reports stage,
   last captured Hraw/Traw if available, and progress. After the
   third cycle, 5s reports continue without further heating.
