@@ -156,9 +156,18 @@ When the official Sense HAT V1 is installed, the firmware performs a
 | HTS221 humidity / temperature | `0x5F` | `0xBC` |
 
 Results are printed as `PASS`, `UNEXPECTED`, or `NO_RESPONSE`.
-No data collection driver is enabled for the additional Sense HAT sensors yet.
+The Sense HAT sensor identity checks passed on target (4/4). Independent\nHTS221, LPS25H and LSM9DS1 acquisition paths are now implemented, with\nphysical data acquisition validation pending.
 The existing Environment HAT sampling continues unchanged, whether the
 Sense HAT devices respond or not.
 
 References: [official Sense HAT schematic](https://pip-assets.raspberrypi.com/categories/676-raspberry-pi-sense-hat/documents/RP-008385-DS-1-sense-hat-schematics.pdf);
 ST LSM9DS1, LPS25H, HTS221 datasheets.
+
+
+## Sense HAT V1 measurement support
+
+The Sense HAT V1 identity check is **hardware PASS (4/4)**, and the original
+Environment HAT continues to sample. Additional ST measurement drivers for
+HTS221, LPS25H and LSM9DS1 have been added in `src/sense_hat_sensors.c`.
+Their live data, 1 Hz stability and orientation are **not yet verified**; see
+[Sense HAT V1 acquisition validation](docs/sense-hat-v1.md).

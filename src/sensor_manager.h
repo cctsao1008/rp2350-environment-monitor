@@ -9,6 +9,7 @@
 #include "sensors/ltr390.h"
 #include "sensors/sgp40.h"
 #include "sensors/icm20948.h"
+#include "sense_hat_sensors.h"
 
 typedef struct {
     bool bme280;
@@ -17,6 +18,9 @@ typedef struct {
     bool sgp40;
     bool icm20948;
     bool ak09916;   // Embedded magnetometer, requires I2C bypass
+    bool hts221;    // Sense HAT V1
+    bool lps25h;
+    bool lsm9ds1;
 } sensor_presence_t;
 
 typedef struct {
@@ -27,11 +31,17 @@ typedef struct {
     bool ltr390_ok;
     bool sgp40_ok;
     bool icm20948_ok;
+    bool hts221_ok;
+    bool lps25h_ok;
+    bool lsm9ds1_ok;
     bme280_reading_t bme280;
     tsl2591_sample_t tsl2591;
     ltr390_sample_t ltr390;
     sgp40_sample_t sgp40;
     icm20948_sample_t icm20948;
+    sense_hts221_sample_t hts221;
+    sense_lps25h_sample_t lps25h;
+    sense_lsm9ds1_sample_t lsm9ds1;
 } sensor_snapshot_t;
 
 void sensor_manager_init(i2c_inst_t *bus, sensor_presence_t *present);

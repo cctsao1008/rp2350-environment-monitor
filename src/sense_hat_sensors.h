@@ -1,0 +1,35 @@
+#ifndef SENSE_HAT_SENSORS_H
+#define SENSE_HAT_SENSORS_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "hardware/i2c.h"
+
+// Values in fixed-point engineering units; no heading or temperature
+// compensation between two HATs is implied.
+typedef struct {
+    int32_t temp_centi_c;
+    uint32_t humidity_centi_rh;
+} sense_hts221_sample_t;
+
+typedef struct {
+    int32_t temp_centi_c;
+    int32_t pressure_centi_hpa;
+} sense_lps25h_sample_t;
+
+typedef struct {
+    int32_t accel_mg[3];
+    int32_t gyro_mdps[3];
+    int32_t mag_centi_ut[3];
+    bool mag_valid;
+} sense_lsm9ds1_sample_t;
+
+// Independent init paths: failures on one IC do not block the others.
+bool sense_hts221_init(i2c_inst_t *bus);
+bool sense_hts221_read(sense_hts221_sample_t *out);
+bool sense_lps25h_init(i2c_inst_t *bus);
+bool sense_lps25h_read(sense_lps25h_sample_t *out);
+bool sense_lsm9ds1_init(i2c_inst_t *bus);
+bool sense_lsm9ds1_read(sense_lsm9ds1_sample_t *out);
+
+#endif

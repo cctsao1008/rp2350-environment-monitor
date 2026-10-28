@@ -18,6 +18,11 @@ void sensor_manager_init(i2c_inst_t *bus, sensor_presence_t *out) {
     connected.sgp40 = sgp40_init(bus);
     connected.icm20948 = icm20948_init(bus);
     connected.ak09916 = connected.icm20948 && icm20948_mag_available();
+
+    // Sense HAT V1 optional devices; independent of Environment HAT.
+    connected.hts221 = sense_hts221_init(bus);
+    connected.lps25h = sense_lps25h_init(bus);
+    connected.lsm9ds1 = sense_lsm9ds1_init(bus);
     if (out) *out = connected;
 }
 
@@ -45,5 +50,14 @@ void sensor_manager_sample(sensor_snapshot_t *s) {
     }
     if (connected.icm20948) {
         s->icm20948_ok = icm20948_read(&s->icm20948);
+    }
+    if (connected.hts221) {
+        s->hts221_ok = sense_hts221_read(&s->hts221);
+    }
+    if (connected.lps25h) {
+        s->lps25h_ok = sense_lps25h_read(&s->lps25h);
+    }
+    if (connected.lsm9ds1) {
+        s->lsm9ds1_ok = sense_lsm9ds1_read(&s->lsm9ds1);
     }
 }

@@ -121,6 +121,54 @@ static void output(const sensor_snapshot_t *s) {
     } else {
         printf("ICM20948 ERROR\r\n");
     }
+
+    // Optional Raspberry Pi Sense HAT V1 measurements.
+    // Values use the ST factory calibration where applicable; they are
+    // printed separately, never silently averaged with the other HAT.
+    if (s->hts221_ok) {
+        printf("HTS221   T=");
+        print_fixed(s->hts221.temp_centi_c);
+        printf("C RH=");
+        print_fixed((int32_t)s->hts221.humidity_centi_rh);
+        printf("%%\r\n");
+    } else {
+        printf("HTS221   NOT_READY / ERROR / NOT_INSTALLED\r\n");
+    }
+
+    if (s->lps25h_ok) {
+        printf("LPS25H   T=");
+        print_fixed(s->lps25h.temp_centi_c);
+        printf("C P=");
+        print_fixed(s->lps25h.pressure_centi_hpa);
+        printf("hPa\r\n");
+    } else {
+        printf("LPS25H   NOT_READY / ERROR / NOT_INSTALLED\r\n");
+    }
+
+    if (s->lsm9ds1_ok) {
+        printf("LSM9DS1  ACCEL[g] x=");
+        for (unsigned i = 0; i < 3; ++i) {
+            if (i) printf(" ");
+            print_thousandths(s->lsm9ds1.accel_mg[i]);
+        }
+        printf(" GYRO[dps] x=");
+        for (unsigned i = 0; i < 3; ++i) {
+            if (i) printf(" ");
+            print_thousandths(s->lsm9ds1.gyro_mdps[i]);
+        }
+        printf("\r\nLSM9DS1  MAG[uT] ");
+        if (s->lsm9ds1.mag_valid) {
+            for (unsigned i = 0; i < 3; ++i) {
+                if (i) printf(" ");
+                print_fixed(s->lsm9ds1.mag_centi_ut[i]);
+            }
+            printf(" (uncalibrated)\r\n");
+        } else {
+            printf("NOT_READY / ERROR\r\n");
+        }
+    } else {
+        printf("LSM9DS1  NOT_READY / ERROR / NOT_INSTALLED\r\n");
+    }
 }
 
 int main(void) {
@@ -155,6 +203,10 @@ int main(void) {
            present.sgp40 ? "OK" : "FAIL",
            present.icm20948 ? "OK" : "FAIL",
            present.ak09916 ? "OK" : "FAIL");
+    printf("Sense HAT V1 INIT HTS221=%s LPS25H=%s LSM9DS1=%s\r\n",
+           present.hts221 ? "OK" : "FAIL",
+           present.lps25h ? "OK" : "FAIL",
+           present.lsm9ds1 ? "OK" : "FAIL");
     if (!present.ak09916) {
         printf("WARN: Magnetometer bypass not available; 6-axis IMU may still work.\r\n");
     }

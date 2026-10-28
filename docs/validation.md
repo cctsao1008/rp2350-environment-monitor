@@ -87,11 +87,11 @@ Details: [P1 all-sensor validation plan](p1-all-sensors.md).
 
 Do not report PASS without corresponding captured hardware evidence.
 
-## Raspberry Pi Sense HAT V1 — LED blanking (source implemented, unverified)
+## Raspberry Pi Sense HAT V1 — LED blanking (hardware PASS 2026-10-28)
 
 - [x] Sense HAT V1 controller at `0x46` confirmed indirectly by successful LED clearing (the firmware checks ID `0xF0` = `'s'` before writing).
 - [x] User reports RGB matrix LEDs turn off after flashing the LED-clearing firmware (2026-10-28); continuous-off duration not measured.
-- [ ] Confirm environmental sensor acquisition remains unchanged.
+- [x] Existing Environment HAT still reports 6/6 initialized and eleven consecutive 1 Hz records with no errors in the captured excerpt.
 - [ ] Confirm Sense HAT controller / EEPROM has not been modified (only volatile framebuffer writes 0..191).
 
 The default rainbow comes from the ATtiny88 built-in pixel array; Linux normally clears it during framebuffer setup. The RP2350 firmware now explicitly clears the same volatile display data without Linux.
@@ -99,14 +99,55 @@ The default rainbow comes from the ATtiny88 built-in pixel array; Linux normally
 
 ## Raspberry Pi Sense HAT V1 — additional sensor identities
 
-Status: **READ-ONLY ID PROBE IMPLEMENTED, NOT YET VERIFIED ON HARDWARE**.
+Status: **DEVICE ID HARDWARE PASS (4/4), 2026-10-28**.
 
-- [ ] LSM9DS1 accel/gyro: I2C `0x6A`, `WHO_AM_I(0x0F)=0x68`.
-- [ ] LSM9DS1 magnetometer: I2C `0x1C`, `WHO_AM_I(0x0F)=0x3D`.
-- [ ] LPS25H pressure: I2C `0x5C`, `WHO_AM_I(0x0F)=0xBD`.
-- [ ] HTS221 temperature/humidity: I2C `0x5F`, `WHO_AM_I(0x0F)=0xBC`.
-- [ ] Confirm existing Environment HAT measurements remain normal while the Sense HAT is stacked.
+- [x] LSM9DS1 accel/gyro: I2C `0x6A`, `WHO_AM_I(0x0F)=0x68`.
+- [x] LSM9DS1 magnetometer: I2C `0x1C`, `WHO_AM_I(0x0F)=0x3D`.
+- [x] LPS25H pressure: I2C `0x5C`, `WHO_AM_I(0x0F)=0xBD`.
+- [x] HTS221 temperature/humidity: I2C `0x5F`, `WHO_AM_I(0x0F)=0xBC`.
+- [x] Existing Environment HAT reported BME280, TSL2591, LTR390, SGP40, ICM20948 and AK09916 initialized and sampled.
 
 The four checks run **once at boot**, after the existing one-time I2C probe,
 without changing configuration or calibration registers. A missing or
 unexpected ID must remain a FAIL/PENDING, not an inferred device identity.
+
+
+### Captured initial Sense HAT V1 hardware evidence
+
+```text
+Sense HAT V1 LED matrix: OFF (framebuffer cleared)
+I2C initial read-probe (diagnostic only): 0C 1C 28 29 46 53 5C 5F 68 6A 76
+Sense HAT V1 sensor identities (WHO_AM_I 0x0F):
+  LSM9DS1_AG   at 0x6A: ID 0x68 (PASS; expected 0x68)
+  LSM9DS1_MAG  at 0x1C: ID 0x3D (PASS; expected 0x3D)
+  LPS25H       at 0x5C: ID 0xBD (PASS; expected 0xBD)
+  HTS221       at 0x5F: ID 0xBC (PASS; expected 0xBC)
+Sense HAT V1 sensor ID summary: 4/4 PASS
+INIT BME280=OK TSL2591=OK LTR390=OK SGP40=OK ICM20948=OK AK09916(mag)=OK
+[sample=1 uptime=3502ms]
+BME280  T=25.16C RH=61.36% P=1008.87hPa
+TSL2591 CH0=62 CH1_IR=19 visible=43 lux=4.87 (estimate)
+LTR390  UV=0 UVI=0.00 ALS=56 lux=11.20 (estimates)
+SGP40   SRAW_VOC=29654 VOC_Index=WARMING_UP (about 45s; not ppm)
+ICM20948 ACCEL[g] x=0.042 -0.025 1.011 GYRO[dps] x=-1.954 0.947 1.328
+AK09916  MAG[uT] -4.95 17.10 36.00 (uncalibrated)
+[sample=11 uptime=13502ms]
+BME280  T=25.19C RH=61.14% P=1008.89hPa
+SGP40   SRAW_VOC=29640 VOC_Index=WARMING_UP (about 45s; not ppm)
+```
+
+The sample timestamps cover eleven consecutive samples in 10 seconds,
+at a 1000 ms nominal cadence. Device identity PASS does **not** imply
+measurement/calibration PASS.
+
+### New Sense HAT V1 data acquisition implementation
+
+**Status: SOURCE IMPLEMENTED; new measurement drivers and configuration
+not yet compiled or validated on the target.**
+
+- [ ] HTS221: read factory calibration, measure T and RH, compare with BME280.
+- [ ] LPS25H: measure pressure / internal temperature, compare pressure with BME280.
+- [ ] LSM9DS1: accel / gyro / mag values are physically plausible; check orientation.
+- [ ] Cross-HAT bias, self-heating and axis alignment analyzed; do not average readings yet.
+- [ ] Confirm all previous Environment HAT sensors remain functional after integration.
+- [ ] Minimum 60s run including post-blackout SGP40 VOC Index.
