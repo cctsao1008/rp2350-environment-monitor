@@ -216,3 +216,17 @@ The LED marquee code itself is unchanged in this follow-up.
       explicit guard and restoration of 7 Hz continuous operation.
 - [ ] Confirm HTS221 RH diagnosis without changing other sensor values.
 - [ ] Do not infer chip damage from the undocumented 0x8000 raw code.
+
+
+## 2026-10-28 HTS221 initial fault isolation on hardware
+
+- [x] WHO_AM_I 0xBC; CTRL1 0x86, CTRL2 0x00, heater off.
+- [x] AV_CONF 0x3F observed (max averaged; not factory reset 0x1B).
+- [x] Burst and single byte reads agree on persistent 0x8000 in most cases.
+- [x] One continuous read showed 0x4065 (16485), also invalid after calibration.
+- [x] One of several manual one-shot trials timed out with H_DA=1, T_DA=0;
+      others returned 0x8000; none validates humidity.
+- [x] Normal 1Hz cadence: 50 of 51 observed intervals = 1000ms;
+      one 1035ms interval followed a manual diagnostic and a 34.2ms lateness warning.
+- [ ] Cold power-cycle, then `hts diag`, inspect AV_CONF default.
+- [ ] `hts avgtest` controlled 0x1B comparison and rollback hardware PASS.

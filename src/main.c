@@ -223,6 +223,7 @@ int main(void) {
     }
     printf("LED controls: type 'led demo', 'led TEXT', 'led b 1..4' or 'led off'\r\n");
     printf("HTS221 tests: 'hts diag' (read only), 'hts oneshot' (restore 7Hz after test)\r\n");
+    printf("HTS221: 'hts avgtest' tests default averaging and restores original\r\n");
     absolute_time_t next = get_absolute_time();
     while (true) {
         sensor_snapshot_t reading;

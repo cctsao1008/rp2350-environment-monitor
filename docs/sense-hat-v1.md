@@ -105,3 +105,38 @@ Implemented USB CDC diagnostic commands; no extra software or HAT required.
 
 Authority: ST HTS221 Datasheet DocID026333 Rev 5 (2023), sections 5.1.1,
 7.3, 7.4, 7.6–7.8 and 8.
+
+
+### Follow-up averaging comparison — new experiment, 2026-10-28
+
+The user ran the first diagnostic firmware. ID=0xBC, CTRL1=0x86,
+CTRL2=0x00/heater OFF, but AV_CONF=0x3F, which is the maximum-averaging
+setting (temperature 256 samples and humidity 512). ST Rev 5 Table 16
+specifies **AV_CONF default 0x1B** (temperature 16 and humidity 32).
+The firmware does not set AV_CONF during ordinary initialization. This
+could represent a state retained when only the RP2350 resets and HAT
+power remains applied; the cause of the setting is not established.
+
+The repeated raw humidity was 0x8000 during both continuous and one-shot
+measurements. One continuous diagnostic after a one-shot TIMEOUT instead
+produced 0x4065 (16485), which evaluates to approximately -24.57%RH under
+that unit's supplied factory calibration, also invalid. The one-shot
+TIMEOUT was H_DA=1/T_DA=0; at maximum averaging this does **not** by
+itself prove permanent sensor hardware failure. One manual diagnostic
+induced 34,212us deadline lateness, while all other adjacent logged
+samples maintained 1000ms cadence.
+
+Added `hts avgtest`: manual, opt-in comparison in **7Hz continuous mode**.
+It verifies ID, CTRL_REG1 and CTRL_REG2, writes **only** AV_CONF to
+factory-default 0x1B, verifies readback, samples eight times 200ms apart
+(with status checks and unmodified humidity/temperature raw registers),
+then restores the exact previous AV_CONF and verifies restoration. It
+will not write the heater, BOOT bit, calibration or reserved registers.
+If restore verification fails, it prevents subsequent HTS221 reads until
+reset. The deliberate ~1.6-second diagnostic may delay a 1Hz sample.
+
+- [ ] Re-test following complete USB power disconnect / cold power-on;
+      inspect AV_CONF before writing any configuration.
+- [ ] Run `hts avgtest`, compare eight Hraw values against earlier 0x8000
+      and intermittent 0x4065.
+- [ ] Confirm `AV_CONF restored` and previous sensor output remains intact.

@@ -238,3 +238,18 @@ No calibration registers, flash trim / BOOT or heater commands are written.
 
 See [HTS221 diagnostic acceptance](docs/sense-hat-v1.md). **Source
 implementation only until on-target testing confirms it.**
+
+
+### New HTS221 controlled averaging comparison
+
+Hardware diagnostic exposed `AV_CONF=0x3F` (max averages: 256 T / 512 RH)
+versus factory power-on default `0x1B` (16 T / 32 RH), along with repeated
+invalid humidity 0x8000 and one outlying 0x4065. One-shot at 0x3F sometimes
+timed out because T_DA did not assert within the diagnostic window.
+
+Use `hts avgtest` for an explicit, reversible 7Hz continuous mode test.
+The command temporarily sets **only** `AV_CONF=0x1B`, reads eight new
+samples at 200ms spacing, and restores the original value with readback.
+This manual test can delay the next 1Hz sample; it never runs on boot.
+Try a complete power disconnect first and inspect `hts diag` for the
+factory reset `AV_CONF=0x1B` before any mode/configuration experiments.

@@ -32,6 +32,8 @@ bool sense_hts221_init(i2c_inst_t *bus);
 bool sense_hts221_read(sense_hts221_sample_t *out);
 // USB CDC interactive fault isolation; one_shot=true temporarily changes mode.
 void sense_hts221_diagnose(bool one_shot);
+// Manual controlled comparison against factory default AV_CONF=0x1B.
+void sense_hts221_averaging_test(void);
 bool sense_lps25h_init(i2c_inst_t *bus);
 bool sense_lps25h_read(sense_lps25h_sample_t *out);
 bool sense_lsm9ds1_init(i2c_inst_t *bus);

@@ -312,6 +312,110 @@ restore:
            attempted_switch ? "restored" : "unchanged", (unsigned)ctrl1);
 }
 
+
+/*
+ * Compare the current HTS221 averaging setting against factory default.
+ * ST DocID026333 Rev 5, Table 16:
+ *   0x1B: temp 16 / RH 32 internal averages
+ *   0x3F: temp 256 / RH 512 internal averages
+ *
+ * Manual USB-CDC command only. No BOOT, calibration, or HEATER writes.
+ * Uses the existing 7 Hz continuous mode. One repeated 1Hz scheduling
+ * delay during the manual test is expected.
+ */
+void sense_hts221_averaging_test(void) {
+    if (!hts_bus) {
+        printf("HTS221 AVGTEST: unavailable (initialization failed)\r\n");
+        return;
+    }
+
+    uint8_t id = 0, ctrl1 = 0, ctrl2 = 0, original_avg = 0;
+    if (!hts_diag_read(0x0Fu, &id) ||
+        !hts_diag_read(0x20u, &ctrl1) ||
+        !hts_diag_read(0x21u, &ctrl2) ||
+        !hts_diag_read(0x10u, &original_avg)) {
+        printf("HTS221 AVGTEST: control READ_FAILED\r\n");
+        return;
+    }
+    printf("HTS221 AVGTEST: original AV_CONF=0x%02X "
+           "ID=0x%02X CTRL1=0x%02X CTRL2=0x%02X\r\n",
+           (unsigned)original_avg, (unsigned)id,
+           (unsigned)ctrl1, (unsigned)ctrl2);
+    if (id != 0xBCu || ctrl1 != 0x86u || ctrl2 != 0x00u ||
+        (original_avg != 0x3Fu && original_avg != 0x1Bu)) {
+        printf("HTS221 AVGTEST: SKIPPED (unexpected configuration)\r\n");
+        return;
+    }
+
+    const uint8_t default_avg = 0x1Bu;
+    const bool change_needed = original_avg != default_avg;
+    bool write_attempted = false;
+    bool capture_ok = true;
+    uint8_t verify = 0u;
+
+    if (change_needed) {
+        // Mark the write as attempted before sending it: an I2C error
+        // may occur after the sensor has accepted the new register value.
+        write_attempted = true;
+        if (!sensor_i2c_write(hts_bus, HTS_ADDR, 0x10u, default_avg) ||
+            !hts_diag_read(0x10u, &verify) || verify != default_avg) {
+            printf("HTS221 AVGTEST: default AV_CONF write/verify failed\r\n");
+            goto restore;
+        }
+    }
+    printf("HTS221 AVGTEST: testing AV_CONF=0x1B "
+           "(T=16 averages, RH=32 averages)\r\n");
+
+    for (unsigned i = 0; i < 8u; ++i) {
+        // 7Hz output gives ~143ms between samples; 200ms normally
+        // provides a new conversion. The STATUS flag is still checked.
+        sleep_ms(200);
+        uint8_t status = 0u, raw[4] = {0};
+        if (!hts_diag_read(0x27u, &status)) {
+            printf("HTS221 AVGTEST: #%u STATUS READ_FAILED\r\n", i + 1u);
+            capture_ok = false;
+            break;
+        }
+        if ((status & 0x03u) != 0x03u) {
+            printf("HTS221 AVGTEST: #%u NOT_READY status=0x%02X\r\n",
+                   i + 1u, (unsigned)status);
+            continue;
+        }
+        if (!sensor_i2c_read(hts_bus, HTS_ADDR,
+                             (uint8_t)(0x28u | ST_BURST_FLAG),
+                             raw, sizeof(raw))) {
+            printf("HTS221 AVGTEST: #%u OUTPUT READ_FAILED\r\n", i + 1u);
+            capture_ok = false;
+            break;
+        }
+        printf("HTS221 AVGTEST: #%u status=0x%02X "
+               "Hraw=%d Traw=%d bytes=%02X %02X %02X %02X\r\n",
+               i + 1u, (unsigned)status,
+               (int)i16le(raw), (int)i16le(&raw[2]),
+               (unsigned)raw[0], (unsigned)raw[1],
+               (unsigned)raw[2], (unsigned)raw[3]);
+    }
+
+restore:
+    if (write_attempted) {
+        // Restore the exact original AV_CONF even if a write or read
+        // unexpectedly failed; then read back to establish its value.
+        bool restored = sensor_i2c_write(hts_bus, HTS_ADDR,
+                                         0x10u, original_avg) &&
+                        hts_diag_read(0x10u, &verify) &&
+                        verify == original_avg;
+        if (!restored) {
+            printf("HTS221 AVGTEST: RESTORE_FAILED; "
+                   "HTS221 reads disabled until hardware reset\r\n");
+            hts_bus = NULL;
+            return;
+        }
+    }
+    printf("HTS221 AVGTEST: %s; AV_CONF restored to 0x%02X\r\n",
+           capture_ok ? "DONE" : "INCOMPLETE",
+           (unsigned)original_avg);
+}
+
 bool sense_lps25h_init(i2c_inst_t *bus) {
     lps_bus = NULL;
     if (!match_id(bus, LPS_ADDR, 0xBDu)) return false;

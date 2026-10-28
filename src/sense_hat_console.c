@@ -16,6 +16,7 @@ static void help(void) {
     printf("LED commands: led demo | led TEXT | led b 1..4 | led off\r\n");
     printf("Green-only 8x8 marquee, one pass, automatically OFF. Default OFF.\r\n");
     printf("HTS221: hts diag (read-only) | hts oneshot (mode test + restore)\r\n");
+    printf("HTS221: hts avgtest (temporary 0x1B averaging + restore)\r\n");
 }
 
 static void execute(const char *line) {
@@ -25,6 +26,10 @@ static void execute(const char *line) {
     }
     if (strcmp(line, "hts diag") == 0) {
         sense_hts221_diagnose(false);
+        return;
+    }
+    if (strcmp(line, "hts avgtest") == 0) {
+        sense_hts221_averaging_test();
         return;
     }
     if (strcmp(line, "hts oneshot") == 0) {
