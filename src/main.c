@@ -5,6 +5,7 @@
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
 #include "sensor_manager.h"
+#include "sense_hat_led.h"
 
 #define SENSOR_BUS i2c1
 #define SDA_PIN 2u
@@ -129,9 +130,16 @@ int main(void) {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
+    // Sense HAT V1 displays a bright rainbow until its ATtiny88
+    // LED framebuffer is cleared. Blank it before the CDC wait.
+    bool sense_hat_led_off = sense_hat_led_clear(SENSOR_BUS);
+
     sleep_ms(3000); // time for a USB CDC terminal to connect
     printf("\r\nRP2350 Environment Monitor - all sensor acquisition\r\n");
     printf("Board: waveshare_rp2350_pizero, I2C1 GPIO2/3, 100kHz\r\n");
+    printf("Sense HAT V1 LED matrix: %s\r\n",
+           sense_hat_led_off ? "OFF (framebuffer cleared)" :
+           "not detected / clear failed");
     scan_i2c_once();
 
     sensor_presence_t present = {0};

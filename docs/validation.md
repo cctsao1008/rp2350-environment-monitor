@@ -86,3 +86,12 @@ Details: [P1 all-sensor validation plan](p1-all-sensors.md).
 - [ ] microSD data logging.
 
 Do not report PASS without corresponding captured hardware evidence.
+
+## Raspberry Pi Sense HAT V1 — LED blanking (source implemented, unverified)
+
+- [ ] Confirm the Sense HAT V1 controller at 7-bit address `0x46` and `0xF0` identity `'s'`.
+- [ ] Confirm all 64 LEDs turn off immediately after RP2350 boot and stay off.
+- [ ] Confirm environmental sensor acquisition remains unchanged.
+- [ ] Confirm Sense HAT controller / EEPROM has not been modified (only volatile framebuffer writes 0..191).
+
+The default rainbow comes from the ATtiny88 built-in pixel array; Linux normally clears it during framebuffer setup. The RP2350 firmware now explicitly clears the same volatile display data without Linux.

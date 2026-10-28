@@ -28,6 +28,7 @@ endif()
 add_executable(environment_monitor
     src/main.c
     src/sensor_manager.c
+    src/sense_hat_led.c
     src/sensors/bme280_port.c
     src/sensors/sensor_i2c_util.c
     src/sensors/tsl2591.c

@@ -124,3 +124,20 @@ P2: timestamped USB CDC output, persistent microSD logging and optional on-devic
 ## License
 
 MIT; see [LICENSE](LICENSE).
+
+## Optional Raspberry Pi Sense HAT V1 LED auto-off
+
+When an original Sense HAT V1 is stacked on the same 40-pin header,
+its ATtiny88 controller (I2C `0x46`) displays the firmware's default
+rainbow image until explicitly cleared. Our RP2350 firmware now checks the
+controller identity register `0xF0` for `'s'`, then writes zeros only to
+the 192-byte volatile LED framebuffer (`0x00` through `0xBF`) immediately
+after I2C initialization. It performs no EEPROM write and does not require
+Raspberry Pi OS, a Linux framebuffer driver, or additional hardware.
+
+A missing Sense HAT or unsupported controller results in
+`Sense HAT V1 LED matrix: not detected / clear failed`; the rest of
+the environmental sensor acquisition continues as before.
+
+Source references: [Raspberry Pi Sense HAT ATtiny88 firmware](https://github.com/raspberrypi/rpi-sense/blob/master/main.c)
+and [LED framebuffer Linux driver](https://github.com/raspberrypi/linux/blob/rpi-6.6.y/drivers/video/fbdev/rpisense-fb.c).
