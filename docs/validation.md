@@ -65,6 +65,16 @@ User-reported 33 sequential lines of compensated BME280 data:
 
 No I2C/data errors appear in this captured sample. This is an initial **functional** validation only; keep accuracy, environmental stimulus-response, long-duration reliability and offline/no-MSC behavior open.
 
+## P1 all-sensor firmware (source integration, not yet validated on this commit)
+
+- [ ] TSL2591 compensated Lux output and saturation handling on hardware.
+- [ ] LTR390 switched UV/ALS measurement, UVI/Lux on hardware.
+- [ ] SGP40 RH/T-compensated SRAW and steady VOC Index after warmup on hardware.
+- [ ] ICM20948 accel/gyro data and AK09916 magnetometer on hardware.
+- [ ] Full integrated 1 Hz sampling and USB CDC error reporting on hardware.
+
+Details: [P1 all-sensor validation plan](p1-all-sensors.md).
+
 ## Future P1 / P2
 
 - [x] BME280 compensated-data acquisition: initial on-target functional test PASS (33 successive readings). See [P1 BME280 results](p1-bme280.md).

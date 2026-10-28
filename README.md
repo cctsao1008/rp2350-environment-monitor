@@ -2,7 +2,7 @@
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
-**Status:** P0 Sensor Identification **PASS (5/5)** on physical hardware (2026-10-28): BME280, SGP40 (serial + CRC), TSL2591, LTR390 and ICM20948. ELF build, PICOBOOT flash/verify and USB CDC also passed. P1 BME280 compensated measurement acquisition **PASS** in an initial 33-sample on-device functional test. Measurement accuracy, endurance, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
+**Status:** P0 five sensor identities PASS on hardware, and the earlier P1 BME280-only firmware passed a 33-sample functional test. **This new all-sensor firmware is implemented in source but still requires a build and device test**. See [P1 all-sensor integration](docs/p1-all-sensors.md) and [validation record](docs/validation.md).
 
 ## Baseline architecture
 
@@ -12,7 +12,7 @@ Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environme
 - **Programming:** `picotool` loading an **ELF** through PICOBOOT; update/verify/execute. No MSC file-copy update path.
 - **Console:** USB CDC through Pico SDK stdio.
 - **P0 diagnostics:** one boot-time I2C read-probe (diagnostic only) plus all five device-specific identity reads.
-- **P1 (initial functional PASS on hardware):** Bosch upstream BME280 SensorAPI (vendored, BSD-3-Clause), forced-mode temperature/humidity/pressure acquisition at nominal 1 Hz via Sensor Manager; USB CDC fixed-point output.
+- **P1 all-sensor integration (not yet hardware-validated):** BME280 T/RH/P, TSL2591 lux, LTR390 UV/ALS, SGP40 SRAW_VOC/VOC Index, ICM20948 6-axis plus AK09916 magnetometer, 1 Hz Sensor Manager/USB CDC. USB CDC fixed-point output.
 
 ## Clone
 
@@ -96,8 +96,9 @@ For multiple devices, set `-Serial <device serial>`; never assume which connecte
 lib/pico-sdk/          pinned SDK Git submodule
 src/main.c             Startup I2C identity checks + periodic USB CDC output
 src/sensor_manager.*   Minimal sensor sampling coordinator
-src/sensors/           BME280 I2C adapter and fixed-point sample API
+src/sensors/           Five sensor drivers, I2C helpers, fixed-point result APIs
 third_party/bosch_bme280/  Pinned Bosch SensorAPI + BSD-3-Clause license
+third_party/sensirion_gas_index/ Pinned Sensirion VOC Index algorithm + license
 scripts/setup-tools.ps1  explicit one-time tool download + SHA256 verification
 scripts/build.ps1      preflight / configure / incremental build
 scripts/flash.ps1      ELF flash / verify / reboot using picotool
@@ -109,7 +110,7 @@ docs/validation.md     acceptance criteria and test evidence
 
 P0 Sensor Identification: **PASS (5/5)**. Remaining infrastructure qualification: offline incremental build and automatic runtime-reset flashing (including checking MSC enumeration policy).
 
-P1: BME280 compensated data acquisition passed an initial 33-sample on-device test; see [P1 evidence and remaining acceptance items](docs/p1-bme280.md). After acceptance, add measurement drivers for TSL2591, LTR390, SGP40 and ICM20948; implement VOC Index after compensation inputs are valid.
+P1: All five sensor acquisition paths are now integrated in source. [P1 all-sensor design and required verification](docs/p1-all-sensors.md). The older BME280-only 33-sample on-device test remains documented in [BME280 evidence](docs/p1-bme280.md).
 
 P2: timestamped USB CDC output, persistent microSD logging and optional on-device display.
 

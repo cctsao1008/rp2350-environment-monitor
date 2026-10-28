@@ -29,17 +29,25 @@ add_executable(environment_monitor
     src/main.c
     src/sensor_manager.c
     src/sensors/bme280_port.c
+    src/sensors/sensor_i2c_util.c
+    src/sensors/tsl2591.c
+    src/sensors/ltr390.c
+    src/sensors/sgp40.c
+    src/sensors/icm20948.c
     third_party/bosch_bme280/bme280.c
+    third_party/sensirion_gas_index/sensirion_gas_index_algorithm.c
 )
 
 target_include_directories(environment_monitor PRIVATE
     src
     third_party/bosch_bme280
+    third_party/sensirion_gas_index
 )
 
 target_link_libraries(environment_monitor PRIVATE
     pico_stdlib
     hardware_i2c
+    m
 )
 
 target_compile_definitions(environment_monitor PRIVATE
