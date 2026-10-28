@@ -197,3 +197,15 @@ show HTS221 humidity stuck at clipped 100% vs BME280 around 62%.
 Firmware now exposes raw HTS221 humidity ADC and unclamped interpolation on
 invalid measurements, plus factory coefficients at startup, so the issue can
 be diagnosed without assuming the physical RH is 100%.
+
+
+### Latest hardware findings (2026-10-28)
+
+- Sense HAT V1 LED marquee: **functional PASS** (user on-device test).
+- HTS221 humidity: **INVALID**, constant raw -32768 / interpolated
+  ~136.94%RH (BME280 ~58.7%RH); diagnostic registers now compared using
+  individual byte reads to distinguish software burst-read issues from
+  sensor/calibration faults. Do not use for sensor fusion.
+- The LED-driven loop's prior 5ms polling sleep caused repeated 2..3ms
+  sample deadline warnings; precise deadline scheduling is now implemented
+  in source, awaiting target verification.

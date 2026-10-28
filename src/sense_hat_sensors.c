@@ -26,6 +26,30 @@ typedef struct {
     uint16_t t0_x8, t1_x8;
 } hts_calibration_t;
 static hts_calibration_t hts_cal;
+static uint32_t hts_invalid_count;
+
+// Exact repeated 0x8000 humidity ADC result warrants separate raw-register
+// reads before assuming a calibration defect or a damaged sensing element.
+// This is diagnostics only; never modify HTS calibration/EEPROM registers.
+static void hts_report_diagnostic(int16_t burst_raw, uint8_t status_before) {
+    uint8_t lo = 0, hi = 0, ctrl1 = 0, ctrl2 = 0, av_conf = 0;
+    bool ok = sensor_i2c_read(hts_bus, HTS_ADDR, 0x28u, &lo, 1u) &&
+              sensor_i2c_read(hts_bus, HTS_ADDR, 0x29u, &hi, 1u) &&
+              sensor_i2c_read(hts_bus, HTS_ADDR, 0x20u, &ctrl1, 1u) &&
+              sensor_i2c_read(hts_bus, HTS_ADDR, 0x21u, &ctrl2, 1u) &&
+              sensor_i2c_read(hts_bus, HTS_ADDR, 0x10u, &av_conf, 1u);
+    if (!ok) {
+        printf("HTS221 DIAG: register read failed, burst_raw=%d status=0x%02X\r\n",
+               (int)burst_raw, (unsigned)status_before);
+        return;
+    }
+    printf("HTS221 DIAG: burst_raw=%d single_L=0x%02X single_H=0x%02X "
+           "status=0x%02X CTRL1=0x%02X CTRL2=0x%02X AV_CONF=0x%02X\r\n",
+           (int)burst_raw, (unsigned)lo, (unsigned)hi,
+           (unsigned)status_before, (unsigned)ctrl1,
+           (unsigned)ctrl2, (unsigned)av_conf);
+}
+
 
 static int16_t i16le(const uint8_t *p) {
     return (int16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8u));
@@ -44,6 +68,7 @@ static int32_t div_signed_rounded(int64_t num, int64_t denom) {
 
 bool sense_hts221_init(i2c_inst_t *bus) {
     hts_bus = NULL;
+    hts_invalid_count = 0;
     if (!match_id(bus, HTS_ADDR, 0xBCu)) return false;
     uint8_t cal[16] = {0};
     if (!sensor_i2c_read(bus, HTS_ADDR, (uint8_t)(0x30u | ST_BURST_FLAG),
@@ -92,7 +117,13 @@ bool sense_hts221_read(sense_hts221_sample_t *s) {
     // measurement from a value silently clipped to 0% or 100%.
     s->humidity_raw = humidity_raw;
     s->humidity_unclamped_centi_rh = rh;
-    s->humidity_valid = rh >= 0 && rh <= 10000;
+    s->humidity_valid = rh >= 0 && rh <= 10000 &&
+                        humidity_raw != (int16_t)0x8000u;
+    if (!s->humidity_valid) {
+        ++hts_invalid_count;
+        if (hts_invalid_count == 1u || (hts_invalid_count % 60u) == 0u)
+            hts_report_diagnostic(humidity_raw, status);
+    }
     if (rh < 0) rh = 0;
     if (rh > 10000) rh = 10000;
 

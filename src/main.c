@@ -228,18 +228,33 @@ int main(void) {
         sensor_manager_sample(&reading);
         output(&reading);
 
+        // Absolute 1 Hz cadence: do not let a coarse 5 ms polling sleep
+        // manufacture a 2..5 ms deadline miss on every single sample.
+        // Do not use I2C in an IRQ; marquee and console share this loop.
         next = delayed_by_ms(next, 1000);
-        // Nonblocking marquee and CDC console, paced entirely from the
-        // main loop: no timer ISR may issue an I2C transfer.
-        // The existing 1 Hz sensor acquisition remains highest priority.
-        while (absolute_time_diff_us(get_absolute_time(), next) > 0) {
+        while (true) {
+            int64_t remaining_us = absolute_time_diff_us(
+                get_absolute_time(), next);
+            if (remaining_us <= 0) break;
+
+            // Leave the last few milliseconds for precise SDK sleep_until;
+            // animation work (~192 frame bytes at 100 kHz) may take several ms.
+            if (remaining_us <= 5000) {
+                sleep_until(next);
+                break;
+            }
             sense_hat_console_poll();
             sense_hat_marquee_poll();
-            sleep_ms(5);
+            sleep_ms(1);
         }
-        if (absolute_time_diff_us(get_absolute_time(), next) < 0) {
-            printf("WARN: sampling cycle exceeded 1 second\r\n");
-            next = get_absolute_time();
+        const int64_t late_us = absolute_time_diff_us(
+            next, get_absolute_time());
+        // A normal scheduler boundary can incur tens/hundreds of us of
+        // jitter. Only log actionable lateness (> 3ms), with its magnitude.
+        if (late_us > 3000) {
+            printf("WARN: sampling deadline late by %lld us\r\n",
+                   (long long)late_us);
+            next = get_absolute_time(); // resync only for a real overrun
         }
     }
 }

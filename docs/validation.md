@@ -158,7 +158,7 @@ not yet compiled or validated on the target.**
 **New source only; built and on-device function not yet verified.**
 
 - [ ] Startup remains LED OFF (the previously verified LED clear remains).
-- [ ] USB CDC `led demo` scrolls `HELLO RP2350`, brightness initially 2/31; one pass then LED OFF.
+- [x] User confirmed Sense HAT V1 LED marquee works on physical hardware (`LED OK`, 2026-10-28); exact speed/brightness and automatic end-of-message blanking not separately quantified.
 - [ ] USB CDC `led b 1` reduces brightness; `led off` immediately blanks LEDs.
 - [ ] USB CDC `led TEXT` scrolls up to 48 ASCII characters; unknown glyphs show `?`.
 - [ ] Concurrent 1 Hz sensor samples remain stable; no I2C/NACK regressions.
@@ -170,3 +170,41 @@ BME280 ranged around 62 %RH. LPS25H pressure was about 2.5 hPa above
 BME280; this needs reference verification, not arbitrary offset removal.
 Both IMUs were responsive to manual rotation. SGP40 VOC Index exited initial
 blackout at sample 47 but index value 1 is not enough to validate air quality.
+
+
+## Sense HAT LED marquee PASS / HTS221 sensor diagnostic (2026-10-28)
+
+The user reports **LED OK** with firmware `f29842a`.
+The accompanying excerpt has 16 records (samples #3..#18), 16 scheduler
+warnings, and 15 inter-sample intervals of 1002..1003 ms (mean 1002.6 ms).
+Original sleep loop uses `sleep_ms(5)` and reports any past-deadline arrival;
+this is consistent with software-induced 2..3 ms lateness, rather than
+proving that sensor acquisition takes longer than 1000 ms.
+
+HTS221 RH is **INVALID for all 16 records**, with exactly
+`humidity_raw=-32768 (0x8000)` and `interp=136.94 %RH`, while BME280
+reports about 58.7 %RH. Both chips' temperature readings remain responsive.
+This is not a safe indication of 100% RH; **never feed HTS221 RH into
+fusion or use it for SGP40 compensation**. Keep BME280 as the current
+valid source. The humidity sensor IC / calibration may be faulty, but the
+cause is still unproven.
+
+ST's official forum includes a historic case of **HTS221 RH ADC=-32768
+with sensible temperature**. ST advises checking two-point interpolation
+and considering device calibration if the calculation is sound:
+https://community.st.com/mems-sensors-48/in-hts221-sensor-not-getting-correct-humidity-data-95288
+
+### Follow-up source modification (verification pending)
+
+- [ ] Run firmware with revised deadline scheduler (1ms coarse sleep and
+      precise `sleep_until` near the 1Hz boundary); confirm no repeated
+      false `WARN` lines and stable 1000ms timestamps.
+- [ ] Verify new read-only HTS221 register diagnostic output:
+      `burst_raw`, individual `H_OUT_L/H_OUT_H`, data-ready
+      `STATUS_REG`, `CTRL_REG1`, `CTRL_REG2`, `AV_CONF`.
+- [ ] Capture `HTS221 CAL:` from startup.
+- [ ] If both burst and independent byte reads repeat `0x8000`, keep
+      humidity classified as invalid and prioritize hardware / calibration
+      investigation over changing the interpolation formula.
+
+The LED marquee code itself is unchanged in this follow-up.

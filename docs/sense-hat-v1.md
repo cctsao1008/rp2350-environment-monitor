@@ -46,3 +46,19 @@ self-heating remain potential sources of temperature differences.
 - ST [LPS25H datasheet](https://www.st.com/resource/en/datasheet/lps25h.pdf)
 - ST [LSM9DS1 datasheet](https://www.st.com/resource/en/datasheet/lsm9ds1.pdf)
 - [Arduino reference LSM9DS1 initialization](https://github.com/arduino-libraries/Arduino_LSM9DS1/blob/master/src/LSM9DS1.cpp)
+
+
+## Measurement quality update — HTS221 RH (2026-10-28)
+
+The first extended on-device record shows Sense HAT V1 HTS221 temperature
+around 26.5 °C, but **humidity_raw=-32768 constantly**, with unclamped
+factory interpolation 136.94 %RH versus BME280 about 58.7 %RH. Status:
+**HTS221 RH INVALID**. Do not average with BME280. The underlying cause
+has not yet been isolated. A subsequent firmware change adds independent
+single-register reads and I2C configuration/status diagnostics.
+
+The LED text marquee is **hardware functional PASS** (user: `LED OK`).
+An unrelated 5ms sleep granularity issue in the main scheduler produced
+warnings at each sample despite only ~2.6ms average period excess;
+follow-up firmware improves its deadline handling, still pending on-target
+verification.
