@@ -1,6 +1,6 @@
 # Validation record
 
-Status: **PARTIAL HARDWARE VALIDATION — P0 ongoing**.
+Status: **P0 SENSOR IDENTIFICATION PASSED (5/5)**. Other infrastructure and functional validation remains open.
 
 ## Evidence: 2026-10-28 (user-provided Windows/USB CDC logs)
 
@@ -13,7 +13,10 @@ Status: **PARTIAL HARDWARE VALIDATION — P0 ongoing**.
 - [ ] Automatic runtime reset with `picotool -f` (without BOOT button).
 - [ ] Disable-MSC-on-runtime-reset behavior confirmed.
 - [x] SGP40 serial command response 9 bytes and three CRC-8 checks PASS; serial `000007C138AD`.
-- [ ] TSL2591, LTR390, ICM20948 identity registers (new diagnostics; pending on-board run).
+- [x] TSL2591 device ID from address `0x29`: `0x50` (PASS).
+- [x] LTR390 PART_ID from address `0x53`: `0xB2` (part `0xB`, revision `0x2`) (PASS).
+- [x] ICM20948 WHO_AM_I from address `0x68`: `0xEA` (PASS).
+- [x] Consecutive repeated identity scans show matching values with no errors in the supplied sample.
 - [ ] Sensor measurement data and calibration validated.
 
 ### First read-probe scan
@@ -32,16 +35,22 @@ Expected sensor addresses: 0x29 (TSL25911), 0x53 (LTR390), 0x59 (SGP40), 0x68 (I
 
 **Resolved:** 0x28 is the documented **secondary read-only I2C address of TSL2591** (primary 0x29), not a sixth physical device. Reference: [ams OSRAM TSL2591 datasheet, page 13](https://look.ams-osram.com/m/c901de8e97608f8/original/TSL2591-DS000338.pdf). 0x59 did not respond to an *uncommanded one-byte read*; this is an unsuitable SGP40 presence probe. A generic read-probe count must not be interpreted as the number of confirmed sensors.
 
-### Next targeted test
+### Identity verification results (2026-10-28)
 
-**Observed on hardware:** SGP40 Get Serial Number `0x3682`, address `0x59`, 9-byte response, all 3 CRC-8 words passed; serial `000007C138AD`. The previous apparent address mismatch is **fully explained** by SGP40 command semantics and TSL2591's secondary read-only address.
+Captured USB CDC log (repeated cycles contained the same values):
 
-**Next:** Validate three remaining sensor IDs using device-specific reads:
-- TSL2591 (0x29): ID register 0x12 through command byte 0xB2, expected `0x50`.
-- LTR390 (0x53): PART_ID register 0x06; high nibble `0xB` (low nibble is revision).
-- ICM20948 (0x68): select bank 0, WHO_AM_I register 0x00, expected `0xEA`.
+```text
+Read-probe responders: 5 (not a sensor count)
+BME280: chip ID 0x60 (PASS)
+SGP40: serial CRC PASS, serial 000007C138AD
+TSL2591: ID 0x50 (PASS)
+LTR390: PART_ID 0xB2 (part 0xB, rev 0x2) (PASS)
+ICM20948: WHO_AM_I 0xEA (PASS)
+```
 
-Each check is implemented in `src/main.c`, not yet built or run on the physical board.
+**PASS scope:** All five sensor identities successfully read at their intended I2C addresses. `0x28` is TSL2591's secondary read-only address. SGP40's `0x59` address is verified via explicit command + CRC, not generic read scanning.
+
+**Not implied by these results:** Validated physical measurements, calibration, accuracy, long-duration stability, offline incremental build, or auto-reset/MSC enumeration behavior.
 
 ## Future P1 / P2
 

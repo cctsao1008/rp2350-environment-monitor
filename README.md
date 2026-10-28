@@ -2,7 +2,7 @@
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
-**Status:** P0 partial hardware validation (2026-10-28). ELF build, PICOBOOT flash/verify, USB CDC, BME280 chip ID, and SGP40 serial/CRC have passed. TSL2591/LTR390/ICM20948 identity reads, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
+**Status:** P0 Sensor Identification **PASS (5/5)** on physical hardware (2026-10-28): BME280, SGP40 (serial + CRC), TSL2591, LTR390 and ICM20948. ELF build, PICOBOOT flash/verify and USB CDC also passed. Physical measurements and calibration, offline incremental build, and automatic runtime reset remain unverified; see [validation record](docs/validation.md).
 
 ## Baseline architecture
 
@@ -93,7 +93,7 @@ For multiple devices, set `-Serial <device serial>`; never assume which connecte
 
 ```text
 lib/pico-sdk/          pinned SDK Git submodule
-src/main.c             USB CDC + I2C probing + BME280 chip ID
+src/main.c             USB CDC + I2C probe + five device-specific identity checks
 scripts/setup-tools.ps1  explicit one-time tool download + SHA256 verification
 scripts/build.ps1      preflight / configure / incremental build
 scripts/flash.ps1      ELF flash / verify / reboot using picotool
@@ -103,7 +103,7 @@ docs/validation.md     acceptance criteria and test evidence
 
 ## Follow-up development
 
-P0: complete the remaining hardware validation, including three additional sensor identity checks, offline incremental build, and automatic runtime-reset flashing. BME280 chip ID, SGP40 serial/CRC and PICOBOOT flash/verify have passed.
+P0 Sensor Identification: **PASS (5/5)**. Remaining infrastructure qualification: offline incremental build and automatic runtime-reset flashing (including checking MSC enumeration policy).
 
 P1: integrate TSL25911, LTR390, SGP40 and ICM20948 drivers; implement data collection and VOC Index.
 
