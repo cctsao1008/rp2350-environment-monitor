@@ -28,11 +28,23 @@ git submodule update --init --recursive
 
 ## Host setup — install once
 
-Install Git, CMake (>= 3.21), Ninja, Arm GNU Toolchain (`arm-none-eabi-gcc`), picotool (>= 2.3.0) and pioasm **2.3.1**. They should be reusable across RP2350 projects, not downloaded separately for each build.
+Install Git, CMake (>= 3.21), Ninja and Arm GNU Toolchain (arm-none-eabi-gcc) separately. They are **not** downloaded by this repository.
 
-The `picotool` and `pioasm` command-line tools must be in `PATH`. CMake additionally requires their **package config directories**, containing `picotoolConfig.cmake` and `pioasmConfig.cmake`. Set `picotool_DIR` and `pioasm_DIR` in your environment, supply them as script parameters, or use a system-visible `CMAKE_PREFIX_PATH`.
+For Windows x64, explicitly install the official *Pico SDK 2.3.1* host tool archives only once:
 
-Official prebuilt tools: https://github.com/raspberrypi/pico-sdk-tools/releases
+```powershell
+.\scripts\setup-tools.ps1
+```
+
+This downloads **picotool 2.3.1** and **pioasm 2.3.1** from Raspberry Pi's signed release asset listing, validates pinned SHA-256 digests, extracts them under `C:\Toolchains\pico-tools\2.3.1`, and sets the **user-level** `PICO_HOST_TOOLS_ROOT` variable. Existing complete installations are reused. **Normal build and flash scripts never invoke this installer and never download tools.**
+
+To choose another shared location:
+
+```powershell
+.\scripts\setup-tools.ps1 -InstallRoot "D:\tools\pico\2.3.1"
+```
+
+Open a new PowerShell after installation to load the saved user-level variable. You can also set `$env:PICO_HOST_TOOLS_ROOT` manually when using an existing installation. Tool ZIPs and executable files are not committed to Git.
 
 ## Windows workflow
 
@@ -43,13 +55,13 @@ Official prebuilt tools: https://github.com/raspberrypi/pico-sdk-tools/releases
 .\scripts\flash.ps1
 ```
 
-If CMake cannot locate installed host tool packages, supply their actual CMake config directories:
+If you already have compatible tools installed elsewhere, set `PICO_HOST_TOOLS_ROOT` (or pass `-ToolsRoot` to the scripts). The build script resolves the executable and the matching CMake package configuration automatically. For installations outside the standard archive layout, pass both `-PicotoolDir` and `-PioasmDir` to `build.ps1`.
 
 ```powershell
-.\scripts\build.ps1 -Mode configure -PicotoolDir "D:\tools\picotool\lib\cmake\picotool" -PioasmDir "D:\tools\pioasm\lib\cmake\pioasm"
+.\scripts\build.ps1 -Mode configure -ToolsRoot "D:\tools\pico\2.3.1"
 ```
 
-These paths are examples only. Do **not** point a `*_DIR` variable at an EXE file. Subsequent builds reuse `build/` and run incrementally.
+Subsequent builds reuse `build/` and run incrementally.
 
 Alternatively use standard CMake directly (`picotool_DIR` / `pioasm_DIR` must be discoverable):
 
@@ -82,6 +94,7 @@ For multiple devices, set `-Serial <device serial>`; never assume which connecte
 ```text
 lib/pico-sdk/          pinned SDK Git submodule
 src/main.c             USB CDC + I2C probing + BME280 chip ID
+scripts/setup-tools.ps1  explicit one-time tool download + SHA256 verification
 scripts/build.ps1      preflight / configure / incremental build
 scripts/flash.ps1      ELF flash / verify / reboot using picotool
 docs/hardware.md       wiring and interface notes

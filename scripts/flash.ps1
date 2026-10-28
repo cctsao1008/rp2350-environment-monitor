@@ -5,6 +5,7 @@ param(
     [string]$Image = '',
     [string]$Picotool = 'picotool',
     [string]$Serial = '',
+    [string]$ToolsRoot = $env:PICO_HOST_TOOLS_ROOT,
     [switch]$NoForce
 )
 
@@ -26,8 +27,17 @@ try {
         throw "ELF not found: $Image. Run scripts/build.ps1 first."
     }
 
-    if ($null -eq (Get-Command $Picotool -ErrorAction SilentlyContinue)) {
-        throw "picotool not found: $Picotool"
+    $command = Get-Command $Picotool -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        $Picotool = $command.Source
+    } elseif ($ToolsRoot) {
+        $folder = Join-Path $ToolsRoot 'picotool'
+        $exe = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Filter 'picotool.exe' |
+                 Select-Object -First 1)
+        if ($exe.Count -eq 0) { throw "picotool.exe missing in $folder" }
+        $Picotool = $exe[0].FullName
+    } else {
+        throw 'picotool not found. Set PICO_HOST_TOOLS_ROOT or provide -Picotool.'
     }
 
     $args = @('load', '-u', '-v', '-x')
@@ -36,10 +46,10 @@ try {
     if ($Serial) { $args += @('--ser', $Serial) }
 
     Write-Host "PICOBOOT flashing: $Image"
-    Write-Host "No USB mass-storage drag-and-drop is used."
+    Write-Host 'No USB mass-storage drag-and-drop is used.'
     & $Picotool @args
     if ($LASTEXITCODE -ne 0) {
-        throw "picotool failed (exit code $LASTEXITCODE). If the application cannot reset automatically, enter BOOTSEL manually or use SWD."
+        throw "picotool failed (exit code $LASTEXITCODE). If auto-reset is unavailable, enter BOOTSEL manually or use SWD."
     }
     Write-Host '[PASS] Flash verified and reboot requested.'
 } catch {
