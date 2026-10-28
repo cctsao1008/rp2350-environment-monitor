@@ -255,8 +255,29 @@ and diagnostic functionality; no additional FW tuning scheduled.
 
 ## HTS221 complete register dump (manual USB CDC)
 
-- [ ] `hts dump` command runs on RP2350 and prints documented register map,
-      16 calibration bytes with addresses, raw H/T and decoded values.
-- [ ] Read-only controls and calibration; `STATUS.H_DA/T_DA` read-to-clear
-      behavior via high output bytes is documented and observed.
-- [ ] Cross-check raw and calibration with prior `hts diag` captures.
+- [x] `hts dump` command runs on RP2350 and prints documented register map,
+      16 calibration bytes with addresses, raw H/T and decoded values (3/3).
+- [x] Read-only controls and calibration; `STATUS.H_DA/T_DA` read-to-clear
+      behavior via high output bytes observed (STATUS 0x03 -> 0x00).
+- [x] Cross-check raw and calibration with prior `hts diag` captures: RH raw 0x8000,
+      Traw 343/346, factory bytes and compensation consistent.
+
+## HTS221 diagnostic dump results — 2026-10-28
+
+- [x] Three `hts dump` runs end with `status=OK`.
+- [x] `WHO_AM_I=BC`, `AV_CONF=3F`, `CTRL1=86`, `CTRL2=00`,
+      `CTRL3=00`.
+- [x] `STATUS 0x03` before read and `0x00` after read.
+- [x] `0x28=00`, `0x29=80`: humidity output `0x8000 (-32768)`
+      in all three dumps.
+- [x] Traw `343,343,346` and temperature `25.49,25.49,25.55°C`
+      continue updating.
+- [x] Calibration `3B 89 99 0D 00 C4 FB FF 65 03 86 D1 00 00 0E 03`
+      matches earlier snapshots; RH interpolates to 136.94%, INVALID.
+- [x] BME280 reports ~62.4..62.9%RH during same interval.
+- [x] Sample timing remains nominal 1Hz in the captured interval.
+- [ ] Verify isolated hardware/known humidity reference if required.
+
+**Disposition:** HTS221 RH sensor channel untrustworthy; preserved invalid
+status and BME280 compensation path; no firmware changes to calibration
+or measurement algorithms.

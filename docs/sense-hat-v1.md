@@ -213,9 +213,51 @@ reserved locations. Those ranges are intentionally skipped.
 
 ### Acceptance
 
-- [ ] The on-target `hts dump` logs all 0x0F/0x10/0x20..0x22,
-      0x27..0x2B and 0x30..0x3F addresses.
-- [ ] Raw H/T, unbounded RH and factory coefficients agree with
+- [x] The on-target `hts dump` logs all 0x0F/0x10/0x20..0x22,
+      0x27..0x2B and 0x30..0x3F addresses (three successful dumps).
+- [x] Raw H/T, unbounded RH and factory coefficients agree with
       previous `hts diag` values within ordinary sampling changes.
-- [ ] No control or calibration register was written; normal 1Hz
-      environmental sampling continues.
+- [x] No control or calibration register was written; normal 1Hz
+      environmental sampling continues (timestamps unchanged across dumps).
+
+## 2026-10-28 HTS221 on-target register dump — PASS for diagnostic, FAIL for RH
+
+The user captured three complete `hts dump` outputs from firmware
+`792859c9`, at uptime_ms **10079, 14026 and 17354**.
+All returned `DUMP END status=OK`.
+
+| Field | Observed across all three dumps |
+| --- | --- |
+| WHO_AM_I (0x0F) | 0xBC |
+| AV_CONF (0x10) | 0x3F |
+| CTRL_REG1/2/3 (0x20..22) | 0x86 / 0x00 / 0x00 |
+| STATUS before / after outputs | 0x03 / 0x00 (normal read-to-clear) |
+| RH output (0x28..29) | 0x00 0x80 = **0x8000 (-32768)** |
+| Temperature output (0x2A..2B) | 0x0157, 0x0157, 0x015A = 343, 343, 346 |
+| RH calibration 0x30..3F | `3B 89 99 0D 00 C4 FB FF 65 03 86 D1 00 00 0E 03` |
+| H0/H1 factory RH points | 29.5 / 68.5 %RH |
+| H0/H1 output raw | -5 / -11898 |
+| T0/T1 raw | 0 / 782 |
+| T0/T1 degrees | 19.125 / 33.625 °C |
+| RH from factory interpolation | **136.94% (INVALID)** |
+| T from factory interpolation | 25.49, 25.49, 25.55 °C |
+| Nearby BME280 RH | ~62.4–62.9% |
+
+The humidity channel is consistently pinned to the *signed 16-bit minimum*
+in this capture. Previous tests showed it sometimes outputs other values
+(e.g. `-31279`.. `-32754`) on restart, still physically invalid. Do not
+claim that it can **never** change. Sensor identity, data-ready, calibration
+readback, and temperature conversion all work; **they do not prove the
+humidity sensing element is electrically healthy**.
+
+ST HTS221 Rev 5 Table 19 confirms the exact calibration register mapping;
+Section 6 Table 15 confirms that CALIB registers must not be modified.
+The documented register dump was *read only*, except the normal high-byte
+read-to-clear behavior of STATUS; no persistent sensor register writes.
+Earlier controlled `AV_CONF=0x1B` testing also failed to recover humidity.
+Current root cause most consistent with humidity sensing path/element or
+environmental damage, but not proved without independent hardware stimulus.
+
+**Decision:** Keep HTS221 RH INVALID; use BME280 for environment humidity
+and SGP40 compensation. No filter/offset correction justified. Firmware
+unchanged; diagnostic / acquisition evidence recorded.
