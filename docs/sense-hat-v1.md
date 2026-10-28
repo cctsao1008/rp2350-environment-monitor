@@ -527,3 +527,64 @@ No firmware change is needed for this observation. HTS221-only output
 and the validity flag are preserved; the observation is evidence
 that future software-calibration proposals must first confirm actual
 dynamic RH response.
+
+
+## 2026-10-28 follow-up: warm-air recovery did NOT persist during cooldown
+
+Source: user-supplied USB CDC capture, sample #2–#231, uptime
+4907–233907ms (229s). The sample portion has **230 complete
+records**, all 229 consecutive sample intervals exactly 1000ms.
+The 5-second `HTS221 AUTO` lines continue to show
+`phase=OBSERVE_ONLY`, `HEATER_AUTO=DISABLED`.
+
+| Measurement point | Sensor T | Interpolated RH | Hraw | Interpretation |
+| --- | ---: | ---: | ---: | --- |
+| #2 (4.907s) | 57.33°C | 54.65% | not printed | within 0–100 display gate |
+| ~#5 (8.491s AUTO) | ~56°C | ~54.5% | -7616 | dynamic raw, VALID |
+| #55 (57.907s) | 44.70°C | 63.03% | not printed | VALID |
+| #100 (102.907s) | 38.10°C | 73.16% | not printed | VALID |
+| #160 (162.907s) | 33.87°C | 87.29% | not printed | VALID |
+| #220 (222.907s) | 31.52°C | 99.18% | not printed | near upper gate |
+| **#221 (223.907s)** | **31.37°C** | **100.14%** | **-21546 (0xABD6)** | **first INVALID** |
+| #231 (233.907s) | 31.07°C | 101.96% | -22102 | INVALID, raw still dynamic |
+
+Note: the independent-byte verification at #221 reports
+`single_L=0xD6 single_H=0xAB`, equal to burst
+`-21546`. This is not the earlier constant `0x8000` endpoint.
+Last 11 frames (#221–#231) are INVALID; prior 219 frames are within
+the simple 0–100% output-range gate.
+
+Across the measured cooling window, sensor-reported temperature
+declined 26.26°C and computed RH increased 47.31 percentage points,
+with Pearson correlation ~**-0.935**. This association does not prove
+a specific physical mechanism: a directed hot-air exposure introduces
+non-equilibrium vapor, sensor-film and PCB temperatures, and possible
+moisture absorption/desorption. Neither an ambient reference nor a
+controlled dew-point/humidity source is present in this capture.
+
+**Correction to earlier disposition:** external heating temporarily
+made Hraw variable and the computed RH numerically bounded, but did
+**not** demonstrate durable or accurate recovery. By 31.37°C it was
+already outside the humidity operating range, long before returning to
+the original ~26°C ambient baseline. A `RH_VALID=YES` result in this
+firmware is a numeric-range check, not an accuracy guarantee.
+
+ST HTS221 Datasheet Rev5 Table3:
+https://www.st.com/resource/en/datasheet/hts221.pdf
+lists 0–100% operating RH, non-condensing accuracy conditions,
+and humidity response t@63% of ~10 seconds measured at 25°C.
+Relevant comparison case (heater temporarily lowers RH then it rises):
+https://community.st.com/mems-sensors-48/why-are-my-hts221s-getting-bad-temperature-values-25361
+
+Next tests, still pending:
+- [ ] Let the sensor cool naturally to stable ambient, avoid more hot-air
+      heating, and continue capturing both raw and unclamped RH values.
+- [ ] Compare at the *same settled temperature* against a colocated
+      reference (e.g. BME280), accounting for spatial temperature
+      gradients and prior heating.
+- [ ] Observe whether Hraw goes back to -32768, or remains dynamic
+      while RH is >100%, and record the associated temperature/time.
+- [ ] After cold stabilization, truly remove all power, reboot, and
+      compare PREINIT AV_CONF/CTRL1 against prior MCU-only reset logs.
+- [ ] Do not edit factory calibration or mask invalid RH to force a PASS.
+- [ ] Mechanism/root-cause declaration remains PENDING.
