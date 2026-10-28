@@ -141,3 +141,24 @@ the environmental sensor acquisition continues as before.
 
 Source references: [Raspberry Pi Sense HAT ATtiny88 firmware](https://github.com/raspberrypi/rpi-sense/blob/master/main.c)
 and [LED framebuffer Linux driver](https://github.com/raspberrypi/linux/blob/rpi-6.6.y/drivers/video/fbdev/rpisense-fb.c).
+
+
+## Optional Sense HAT V1 sensor ID validation
+
+When the official Sense HAT V1 is installed, the firmware performs a
+**read-only, one-time WHO_AM_I check** (register `0x0F`) on:
+
+| Sensor | I2C address | Expected ID |
+| --- | --- | --- |
+| LSM9DS1 accelerometer / gyroscope | `0x6A` | `0x68` |
+| LSM9DS1 magnetometer | `0x1C` | `0x3D` |
+| LPS25H pressure | `0x5C` | `0xBD` |
+| HTS221 humidity / temperature | `0x5F` | `0xBC` |
+
+Results are printed as `PASS`, `UNEXPECTED`, or `NO_RESPONSE`.
+No data collection driver is enabled for the additional Sense HAT sensors yet.
+The existing Environment HAT sampling continues unchanged, whether the
+Sense HAT devices respond or not.
+
+References: [official Sense HAT schematic](https://pip-assets.raspberrypi.com/categories/676-raspberry-pi-sense-hat/documents/RP-008385-DS-1-sense-hat-schematics.pdf);
+ST LSM9DS1, LPS25H, HTS221 datasheets.

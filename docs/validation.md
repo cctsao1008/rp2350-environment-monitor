@@ -89,9 +89,24 @@ Do not report PASS without corresponding captured hardware evidence.
 
 ## Raspberry Pi Sense HAT V1 — LED blanking (source implemented, unverified)
 
-- [ ] Confirm the Sense HAT V1 controller at 7-bit address `0x46` and `0xF0` identity `'s'`.
-- [ ] Confirm all 64 LEDs turn off immediately after RP2350 boot and stay off.
+- [x] Sense HAT V1 controller at `0x46` confirmed indirectly by successful LED clearing (the firmware checks ID `0xF0` = `'s'` before writing).
+- [x] User reports RGB matrix LEDs turn off after flashing the LED-clearing firmware (2026-10-28); continuous-off duration not measured.
 - [ ] Confirm environmental sensor acquisition remains unchanged.
 - [ ] Confirm Sense HAT controller / EEPROM has not been modified (only volatile framebuffer writes 0..191).
 
 The default rainbow comes from the ATtiny88 built-in pixel array; Linux normally clears it during framebuffer setup. The RP2350 firmware now explicitly clears the same volatile display data without Linux.
+
+
+## Raspberry Pi Sense HAT V1 — additional sensor identities
+
+Status: **READ-ONLY ID PROBE IMPLEMENTED, NOT YET VERIFIED ON HARDWARE**.
+
+- [ ] LSM9DS1 accel/gyro: I2C `0x6A`, `WHO_AM_I(0x0F)=0x68`.
+- [ ] LSM9DS1 magnetometer: I2C `0x1C`, `WHO_AM_I(0x0F)=0x3D`.
+- [ ] LPS25H pressure: I2C `0x5C`, `WHO_AM_I(0x0F)=0xBD`.
+- [ ] HTS221 temperature/humidity: I2C `0x5F`, `WHO_AM_I(0x0F)=0xBC`.
+- [ ] Confirm existing Environment HAT measurements remain normal while the Sense HAT is stacked.
+
+The four checks run **once at boot**, after the existing one-time I2C probe,
+without changing configuration or calibration registers. A missing or
+unexpected ID must remain a FAIL/PENDING, not an inferred device identity.

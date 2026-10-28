@@ -6,6 +6,7 @@
 #include "pico/stdlib.h"
 #include "sensor_manager.h"
 #include "sense_hat_led.h"
+#include "sense_hat_probe.h"
 
 #define SENSOR_BUS i2c1
 #define SDA_PIN 2u
@@ -141,6 +142,8 @@ int main(void) {
            sense_hat_led_off ? "OFF (framebuffer cleared)" :
            "not detected / clear failed");
     scan_i2c_once();
+    // Read-only Sense HAT V1 sensor identity diagnostics (once at boot).
+    sense_hat_probe_identify(SENSOR_BUS);
 
     sensor_presence_t present = {0};
     sensor_manager_init(SENSOR_BUS, &present);
