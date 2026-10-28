@@ -36,7 +36,7 @@ For Windows x64, explicitly install the official *Pico SDK 2.3.1* host tool arch
 .\scripts\setup-tools.ps1
 ```
 
-This downloads **picotool 2.3.1** and **pioasm 2.3.1** from Raspberry Pi's signed release asset listing, validates pinned SHA-256 digests, extracts them under `C:\Toolchains\pico-tools\2.3.1`, and sets the **user-level** `PICO_HOST_TOOLS_ROOT` variable. Existing complete installations are reused. **Normal build and flash scripts never invoke this installer and never download tools.**
+This downloads **picotool 2.3.1** and **pioasm 2.3.1** from Raspberry Pi's official GitHub release assets, validates pinned SHA-256 digests, extracts them under `C:\Toolchains\pico-tools\2.3.1`, and sets the **user-level** `PICO_HOST_TOOLS_ROOT` variable. Existing complete installations are reused. **Normal build and flash scripts never invoke this installer and never download tools.**
 
 To choose another shared location:
 
