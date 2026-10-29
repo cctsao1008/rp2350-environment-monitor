@@ -208,9 +208,15 @@ static void output(const sensor_snapshot_t *s) {
 int main(void) {
 #if PROJECT_ENABLE_USB_WEB_PHASE1
     usb_ncm_network_identity_init();
-    (void)tusb_init();
+    // Pinned TinyUSB requires an explicit root-hub/device-role
+    // descriptor when CFG_TUSB_RHPORT0_MODE is not defined.
+    const tusb_rhport_init_t usb_init = {
+        .role = TUSB_ROLE_DEVICE,
+        .speed = TUSB_SPEED_AUTO
+    };
+    const bool usb_stack_ok = tusb_init(0, &usb_init);
     usb_cdc_stdio_init();
-    bool usb_network_ok = usb_ncm_network_init();
+    bool usb_network_ok = usb_stack_ok && usb_ncm_network_init();
 #else
     stdio_init_all();
 #endif
