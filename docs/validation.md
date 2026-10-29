@@ -823,8 +823,9 @@ USB CDC-NCM as source-only. Actual Windows 11 hardware evidence:
       summary and complete CDC log were not supplied, so its numeric
       acceptance metrics are **not verified**.
 
-**Build source closure:** CMake now generates a project-local replacement
-TinyUSB NCM translation unit in the build directory with both NTB
+**Build source closure:** CMake now reads the pinned TinyUSB Git HEAD
+object (not the dirty working-tree copy) and generates a project-local
+replacement NCM translation unit in the build directory with both NTB
 divisors set to 4; it skips compiling the vendor NCM TU. The pinned
 SDK/TinyUSB source is never modified by the generation step. A previously
 dirty local submodule may still need a separate conscious cleanup.
