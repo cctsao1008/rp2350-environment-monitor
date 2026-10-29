@@ -1,6 +1,6 @@
 # USB CDC-NCM Web Phase 1 — Experimental Bring-up
 
-Status: **Windows 11 USB CDC-NCM / CDC ACM, DHCP, DNS, ICMP, HTTP and vendor-reset hardware bring-up PASS** (2026-10-30). Ten-minute concurrency, rollback, replug and clean-checkout build remain PENDING.
+Status: **Windows 11 USB CDC-NCM / CDC ACM, DHCP, DNS, ICMP, HTTP and vendor-reset hardware bring-up PASS** (2026-10-30). Long stability run reported completed (summary not provided). Phase 2 and clean-checkout generated-source build are NOT yet validated.
 This work is confined to `feature/usb-ncm-web-phase1`. The default
 `ENABLE_USB_NCM_WEB_PHASE1=OFF` uses the previous firmware path unchanged.
 
@@ -67,9 +67,8 @@ and flash the experimental ELF via `picotool` if necessary.
 
 The `-Ncm` opt-in passes the tested `picotool 2.3.1` invocation with
 `--vid 51966 --pid 16547 -f` **after the ELF filename**. The ordinary
-CDC-only `flash.ps1` behavior is unchanged. The direct `picotool` invocation
-has passed on hardware; the new wrapper `-Ncm` option still needs a
-separate target run before it is marked validated.
+CDC-only `flash.ps1` behavior is unchanged. Direct picotool and the
+`-Ncm` wrapper have both passed on hardware (re-enumeration + HTTP 200).
 
 Validated direct command (close Miniterm first):
 
@@ -111,8 +110,10 @@ py -m serial.tools.miniterm COM3 115200 --exit-char 24
       1575..1604 at a mean interval of 1000ms.
 - [x] Preliminary concurrent HTTP testing: 17/17 HTTP 200 with active
       sensor CDC output. This is NOT the 30-request or 10-minute acceptance run.
-- [ ] NCM traffic does not break 1Hz sampling or SGP40 indexing;
-      run at least 10 minutes with page reload and network traffic.
+- [x] Long stability run: user reports it completed, but did not supply
+      final counts, CDC interval aggregate or logs; **no quantitative
+      10-minute PASS criterion can be independently asserted**.
+      No further testing is requested.
 - [x] **Vendor reset**: with the experimental application running,
       `picotool load -u -v -x build-ncm/environment_monitor.elf
       --vid 51966 --pid 16547 -f` enters ROM PICOBOOT without
@@ -130,8 +131,9 @@ py -m serial.tools.miniterm COM3 115200 --exit-char 24
 Vendor Reset is functional with the explicit experimental VID/PID.
 The default `flash.ps1 -BuildDir build-ncm` previously failed because
 `picotool` did not discover the experimental VID/PID; do not treat
-that as a device-side reset failure. Do not merge this branch before
-remaining acceptance work and reproducible dependency patching.
+that as a device-side reset failure. The `-Ncm` opt-in has passed.
+Phase 2 and clean-checkout reproducibility remain **source-only**;
+this feature has not been merged to `main`.
 
 ## Known engineering constraints
 
@@ -172,10 +174,11 @@ Keep `main` unchanged until the experiments pass.
 
 - Windows NCM previously failed with PnP Code 10. Modifying the pinned
   TinyUSB `src/class/net/ncm_device.c` values `wNdbInDivisor` and
-  `wNdbOutDivisor` from 1 to 4 fixed NCM enumeration in the observed
-  build. This is currently **a dirty nested TinyUSB submodule**, not a
-  reproducible repository patch. Preserve it until a pinned patch or
-  upstream dependency update is committed and tested.
+  `wNdbOutDivisor` from 1 to 4 fixed NCM enumeration on hardware.
+  **The fix is now represented by CMake-generated source in the build
+  directory**, which does not edit or depend on a dirty submodule.
+  A user checkout carrying the earlier manual edit stays dirty until
+  deliberately restored. Clean-checkout compilation is NOT verified.
 - The NCM adapter received DHCP address `192.168.7.2/24` from
   `192.168.7.1`; DNS `sensor.usb` and HTTP via hostname PASS.
 - The observed HTTP concurrency run finished at 17/17 PASS, without
@@ -185,3 +188,10 @@ Keep `main` unchanged until the experiments pass.
   the ELF file successfully triggered ROM PICOBOOT, loaded and verified
   firmware, and requested reboot. The wrapper `-Ncm` switch was added
   afterward and subsequently passed on-target testing.
+
+## Phase 2 continuation (source-only)
+
+The feature branch now contains a read-only embedded Dashboard and a
+Sensor Snapshot JSON API (`/api/v1/sensors.json`). These reuse the
+existing Sensor Manager's 1Hz output. See [Phase 2](usb-web-phase2.md).
+No new build, flash or on-target tests have been performed, per user request.
