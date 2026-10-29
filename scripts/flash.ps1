@@ -6,7 +6,8 @@ param(
     [string]$Picotool = 'picotool',
     [string]$Serial = '',
     [string]$ToolsRoot = $env:PICO_HOST_TOOLS_ROOT,
-    [switch]$NoForce
+    [switch]$NoForce,
+    [switch]$Ncm
 )
 
 Set-StrictMode -Version Latest
@@ -41,8 +42,17 @@ try {
     }
 
     $args = @('load', '-u', '-v', '-x')
-    if (-not $NoForce) { $args += '-f' }
-    $args += (Resolve-Path -LiteralPath $Image).Path
+    $elfPath = (Resolve-Path -LiteralPath $Image).Path
+    if ($Ncm -and -not $NoForce) {
+        # picotool 2.3.1 requires the file before device-selection options.
+        # The experimental CDC-NCM application uses the test VID:PID CAFE:40A3.
+        $args += $elfPath
+        $args += @('--vid', '51966', '--pid', '16547', '-f')
+    } else {
+        # Preserve the existing CDC-only / manual BOOTSEL behavior.
+        if (-not $NoForce) { $args += '-f' }
+        $args += $elfPath
+    }
     if ($Serial) { $args += @('--ser', $Serial) }
 
     Write-Host "PICOBOOT flashing: $Image"
