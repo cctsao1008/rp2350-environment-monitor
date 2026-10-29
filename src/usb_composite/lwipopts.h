@@ -3,6 +3,8 @@
 // Single-threaded lwIP configuration based on pinned TinyUSB NCM example.
 #define NO_SYS 1
 #define MEM_ALIGNMENT 4
+// Heap also holds one bounded JSON response per active HTTP request.
+#define MEM_SIZE 8192
 #define LWIP_RAW 0
 #define LWIP_NETCONN 0
 #define LWIP_SOCKET 0
@@ -20,6 +22,10 @@
 #define ETHARP_SUPPORT_STATIC_ENTRIES 1
 #define LWIP_HTTPD_CGI 0
 #define LWIP_HTTPD_SSI 0
+// Phase 2 serves HTML and snapshot JSON through per-request custom files.
+#define LWIP_HTTPD_CUSTOM_FILES 1
+#define LWIP_HTTPD_FILE_EXTENSION 1
+#define LWIP_HTTPD_DYNAMIC_HEADERS 0
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_SINGLE_NETIF 1
 #define PBUF_POOL_SIZE 4
