@@ -221,7 +221,7 @@ bool usb_ncm_network_init(void) {
     if (!netif_is_up(&netif_data)) return false;
     if (dhserv_init(&dhcp_config) != ERR_OK) return false;
     if (dnserv_init(IP_ADDR_ANY, 53, dns_query_proc) != ERR_OK) return false;
-    httpd_init(); // Phase 1: lwIP's stock diagnostic page; no sensor API yet.
+    httpd_init(); // Phase 2: local read-only dashboard + latest snapshot JSON.
     return true;
 }
 
