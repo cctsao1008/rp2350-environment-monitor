@@ -71,15 +71,28 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
     endforeach()
     # Windows 11 UsbNcm requires NTB IN/OUT divisors of 4 (pinned
     # TinyUSB provides 1). Generate a replacement source in the build
-    # directory, rather than writing into the pinned Git submodule.
+    # directory from the pinned Git object, never from dirty worktree data.
     set(_tinyusb_ncm_original
         "${PICO_SDK_PATH}/lib/tinyusb/src/class/net/ncm_device.c")
     if(NOT EXISTS "${_tinyusb_ncm_original}")
         message(FATAL_ERROR "Pinned TinyUSB NCM driver missing: ${_tinyusb_ncm_original}")
     endif()
+    # Read the checked-out TinyUSB commit's Git object, not the local
+    # working-tree file. Thus an old manual two-line change in the
+    # nested submodule does not affect the generated firmware source.
+    find_package(Git REQUIRED)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${PICO_SDK_PATH}/lib/tinyusb"
+            show "HEAD:src/class/net/ncm_device.c"
+        OUTPUT_VARIABLE _ncm_source
+        ERROR_VARIABLE _ncm_git_error
+        RESULT_VARIABLE _ncm_git_result
+    )
+    if(NOT _ncm_git_result EQUAL 0)
+        message(FATAL_ERROR "Cannot read pinned TinyUSB NCM Git object: ${_ncm_git_error}")
+    endif()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${_tinyusb_ncm_original}")
-    file(READ "${_tinyusb_ncm_original}" _ncm_source)
     foreach(_field IN ITEMS wNdbInDivisor wNdbOutDivisor)
         set(_from "  .${_field}            = 1,")
         set(_to "  .${_field}            = 4,")
