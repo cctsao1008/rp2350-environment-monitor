@@ -727,3 +727,63 @@ No Firmware modifications accompany this observation update.
 
 The historical HTS221 saturation investigation remains evidence but is
 not an active test with the Sense HAT physically absent.
+
+
+## 2026-10-29 Environment Sensor HAT-only — actual 1Hz target log
+
+After physically removing Raspberry Pi Sense HAT V1 and restoring the
+Environment Sensor HAT-only default build, the user supplied six USB
+CDC frames, `sample=6..11`, uptime **8464..13464ms**. All five
+successive intervals are **1000ms**. No I2C read or scheduler
+overrun/error is shown in this short excerpt; this does not certify
+long-term stability. All six Environment HAT outputs are present and
+no HTS221/LPS25H/LSM9DS1 or LED messages appear within the excerpt.
+
+| Channel | Observed 6-frame range / statistics | Assessment |
+| --- | --- | --- |
+| BME280 temperature | 23.95..23.98°C | plausible, responsive |
+| BME280 RH | 66.91..67.62%RH | plausible; +0.71pp/5s |
+| BME280 pressure | 1007.28..1007.32 hPa | plausible |
+| TSL2591 | CH0=1960..1967, IR=312..314; 225.87..226.98 estimated lux, mean 226.43 | I2C and calculation active, NOT photometric accuracy |
+| LTR390 | ALS=3037..3047; 607.40..609.40 estimated lux, mean 608.37; UV=0 | ALS active; UV optical stimulus not proved |
+| SGP40 | SRAW_VOC 29247..29289, index WARMING_UP | valid output path, <45s algorithm blackout |
+| ICM20948 accelerometer | ~1.004..1.021g acceleration norm | consistent with stationary gravity |
+| ICM20948 gyroscope | mean about (-1.005,-0.570,-0.728) dps | raw signal updates; zero-rate bias not yet calibrated |
+| AK09916 magnetometer | magnitude ~40.7..42.2 µT | raw signal and I2C bypass functioning, NOT calibrated |
+
+**Light sensor numerical discrepancy:** the two 1Hz reported lux
+figures differ by **~2.687×** on the same HAT, and this difference is
+reproducible through the six frames. Current source code uses:
+- `tsl2591.c`: 100ms, 25× gain, `CPL=100*25/408`,
+  `lux=(CH0-CH1)*(1-CH1/CH0)/CPL`.
+- `ltr390.c`: 18-bit/100ms and 3× gain, `lux=ALS*0.2`,
+  which is consistent with the LTR390 no-window conversion.
+The arithmetic matches the console, but different spectral response,
+gain/integration/optical geometry and empirical formula coefficients
+must be isolated before labeling either sensor inaccurate. No fixed
+2.687× gain correction is justified from six ambient frames.
+
+SGP40 VOC Index initialization is expected to return 0 for ~45s.
+The Sensirion reference algorithm expects constant 1Hz input, which
+is fulfilled in this six-frame excerpt. The raw SRAW value is NOT VOC
+ppm or concentration. See Sensirion Gas Index Algorithm documentation.
+
+- [x] **Real-target evidence**: Environment HAT BME280/TSL2591/
+      LTR390/SGP40/ICM20948/AK09916 all produce output.
+- [x] **Real-target evidence**: 5/5 intervals in the capture at 1000ms.
+- [x] **Source & target numeric agreement**: both light estimates.
+- [ ] Capture full startup INIT line and runtime data after 60s,
+      verify VOC Index transitions from WARMING_UP to numeric.
+- [ ] LTR390 UV excitation test under suitable UV source (avoid
+      assuming UV=0 proves sensor failure in an indoor setting).
+- [ ] Light response test using **the same calibrated light reference**
+      and controlled illuminance; determine error versus light type.
+- [ ] Stationary gyro bias/noise estimate over 1–5 minutes; deliberate
+      axis movement and magnetometer heading/calibration separately.
+- [ ] Additional duration tests: 10+ minutes 1Hz with no overrun,
+      communication or initialization errors.
+- [ ] Build hash / toolchain output and boot logs for exact version
+      identification remain unverified from this excerpt alone.
+
+Sense HAT V1 remains physically absent and disabled. **No firmware or
+calibration changes** were made for this capture.
