@@ -120,7 +120,10 @@ py -m serial.tools.miniterm COM3 115200 --exit-char 24
       The two-stage `picotool reboot -u --vid 51966 --pid 16547 -f`
       then `flash.ps1 -NoForce` also passed. BOOTSEL PICOBOOT works
       without relying on USB mass-storage drag/drop.
-- [ ] New `flash.ps1 -BuildDir build-ncm -Ncm` wrapper option target test.
+- [x] `flash.ps1 -BuildDir build-ncm -Ncm` wrapper on-target PASS:
+      automatic BOOTSEL, ELF load 100%, verify OK and reboot request;
+      Windows CDC ACM, NCM, vendor reset all re-enumerated with
+      PnP status OK, and `http://192.168.7.1/index.html` returned 200.
 - [ ] Rollback test from physical BOOTSEL and stable ELF.
 - [ ] Windows connection teardown/replug, reset, and serial stability.
 
@@ -181,4 +184,4 @@ Keep `main` unchanged until the experiments pass.
 - A separate direct `picotool load` invocation with test VID/PID **after**
   the ELF file successfully triggered ROM PICOBOOT, loaded and verified
   firmware, and requested reboot. The wrapper `-Ncm` switch was added
-  afterward and is pending on-target testing.
+  afterward and subsequently passed on-target testing.
