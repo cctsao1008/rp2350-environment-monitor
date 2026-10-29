@@ -1,6 +1,6 @@
 # USB CDC-NCM Web Phase 1 — Experimental Bring-up
 
-Status: **cross-build PASS on Windows; USB enumeration, network, and hardware validation PENDING** (2026-10-29).
+Status: **Windows 11 USB CDC-NCM / CDC ACM, DHCP, DNS, ICMP, HTTP and vendor-reset hardware bring-up PASS** (2026-10-30). Ten-minute concurrency, rollback, replug and clean-checkout build remain PENDING.
 This work is confined to `feature/usb-ncm-web-phase1`. The default
 `ENABLE_USB_NCM_WEB_PHASE1=OFF` uses the previous firmware path unchanged.
 
@@ -31,9 +31,10 @@ This work is confined to `feature/usb-ncm-web-phase1`. The default
 - CDC logs use a lightweight Pico stdio registration over TinyUSB
   CDC ACM; data is discarded when COM is closed or the FIFO fills.
   It is *not* a reliable logging transport.
-- The previous USB Vendor Reset mechanism is intended to be
-  preserved via `pico_usb_reset`. That requires **on-hardware
-  validation** before treating `picotool -f` as safe and available.
+- The `pico_usb_reset` Vendor Reset interface was verified on hardware
+  with explicit `CAFE:40A3` selection. `picotool` 2.3.1 does not find
+  the experimental application without this selection; ROM BOOTSEL
+  uses its own VID/PID after reset.
 
 ## Windows 11 build (explicit opt-in)
 
@@ -57,11 +58,27 @@ After building, initially use physical BOOTSEL to enter ROM recovery
 and flash the experimental ELF via `picotool` if necessary.
 
 ```powershell
-.\scripts\flash.ps1 -BuildDir build-ncm
+# Experimental CDC-NCM application currently running:
+.\scripts\flash.ps1 -BuildDir build-ncm -Ncm
+
+# Device already in ROM BOOTSEL (or use physical BOOTSEL):
+.\scripts\flash.ps1 -BuildDir build-ncm -NoForce
 ```
 
-This command still uses the existing script's `picotool load -u -v -x -f`
-flow, which itself must be retested under the new Composite Descriptor.
+The `-Ncm` opt-in passes the tested `picotool 2.3.1` invocation with
+`--vid 51966 --pid 16547 -f` **after the ELF filename**. The ordinary
+CDC-only `flash.ps1` behavior is unchanged. The direct `picotool` invocation
+has passed on hardware; the new wrapper `-Ncm` option still needs a
+separate target run before it is marked validated.
+
+Validated direct command (close Miniterm first):
+
+```powershell
+picotool load -u -v -x .\build-ncm\environment_monitor.elf --vid 51966 --pid 16547 -f
+```
+
+Do not add the application VID/PID filter to a command targeting a device
+*already* in ROM BOOTSEL. For that case use `-NoForce`.
 
 ## Windows CDC ACM terminal (Ctrl+X exit)
 
@@ -84,24 +101,34 @@ py -m serial.tools.miniterm COM3 115200 --exit-char 24
 ## Required target acceptance
 
 - [x] `build-ncm/environment_monitor.elf` cross-compiles and links with pinned Pico SDK 2.3.1, ARM GNU 15.2 and Ninja. User's Windows console reports `[44/44] Linking CXX executable environment_monitor.elf` followed by `[PASS] Firmware ELF:`. SHA-256 of ELF has not been recorded.
-- [ ] Windows enumerates both CDC ACM COM port and USB NCM adapter.
-- [ ] Device's HTTP endpoint at `http://192.168.7.1/` opens
-      (expect **lwIP sample page**, not dashboard).
-- [ ] `ping 192.168.7.1` works (if local firewall permits).
-- [ ] USB CDC still prints all six sensors, without lost sample sequence.
+- [x] Windows enumerates CDC ACM COM3, NCM, Vendor Reset and USB Composite
+      (`CAFE:40A3`), all with PnP status OK.
+- [x] Device's HTTP endpoint at `http://192.168.7.1/` serves the
+      **lwIP sample page** (HTTP 200; dashboard remains out of scope).
+- [x] `ping 192.168.7.1` succeeds (4/4, 1ms).
+- [x] DNS resolves `sensor.usb` to `192.168.7.1`; hostname HTTP returns 200.
+- [x] USB CDC prints all six sensor channels; observed continuous sequence
+      1575..1604 at a mean interval of 1000ms.
+- [x] Preliminary concurrent HTTP testing: 17/17 HTTP 200 with active
+      sensor CDC output. This is NOT the 30-request or 10-minute acceptance run.
 - [ ] NCM traffic does not break 1Hz sampling or SGP40 indexing;
       run at least 10 minutes with page reload and network traffic.
-- [ ] **Vendor reset**: with the application running, `picotool load
-      -u -v -x -f build-ncm/environment_monitor.elf` enters ROM
-      PICOBOOT *without* a physical BOOTSEL press, verifies, executes.
-      Confirm that requested BOOTSEL mode disables MSC but not PICOBOOT.
+- [x] **Vendor reset**: with the experimental application running,
+      `picotool load -u -v -x build-ncm/environment_monitor.elf
+      --vid 51966 --pid 16547 -f` enters ROM PICOBOOT without
+      physical BOOTSEL, verifies 100%, and requests application reboot.
+      The two-stage `picotool reboot -u --vid 51966 --pid 16547 -f`
+      then `flash.ps1 -NoForce` also passed. BOOTSEL PICOBOOT works
+      without relying on USB mass-storage drag/drop.
+- [ ] New `flash.ps1 -BuildDir build-ncm -Ncm` wrapper option target test.
 - [ ] Rollback test from physical BOOTSEL and stable ELF.
 - [ ] Windows connection teardown/replug, reset, and serial stability.
 
-A failure of the vendor reset test does **not** mean ROM
-PICOBOOT or SWD flashing is lost; it means application-triggered
-entry is not yet working. Do not merge this branch until
-cross-build and physical tests complete.
+Vendor Reset is functional with the explicit experimental VID/PID.
+The default `flash.ps1 -BuildDir build-ncm` previously failed because
+`picotool` did not discover the experimental VID/PID; do not treat
+that as a device-side reset failure. Do not merge this branch before
+remaining acceptance work and reproducible dependency patching.
 
 ## Known engineering constraints
 
@@ -137,3 +164,21 @@ This is user-observed **compilation/link PASS** only. There is no
 flashing, Windows CDC-NCM, DHCP, HTTP, serial enumeration, or
 application-to-ROM Vendor Reset result in the submitted evidence.
 Keep `main` unchanged until the experiments pass.
+
+## 2026-10-30 hardware evidence and dependency note
+
+- Windows NCM previously failed with PnP Code 10. Modifying the pinned
+  TinyUSB `src/class/net/ncm_device.c` values `wNdbInDivisor` and
+  `wNdbOutDivisor` from 1 to 4 fixed NCM enumeration in the observed
+  build. This is currently **a dirty nested TinyUSB submodule**, not a
+  reproducible repository patch. Preserve it until a pinned patch or
+  upstream dependency update is committed and tested.
+- The NCM adapter received DHCP address `192.168.7.2/24` from
+  `192.168.7.1`; DNS `sensor.usb` and HTTP via hostname PASS.
+- The observed HTTP concurrency run finished at 17/17 PASS, without
+  reaching the planned 30 requests. CDC sample sequence 1575..1604
+  remained consecutive and on a 1Hz schedule in the supplied log.
+- A separate direct `picotool load` invocation with test VID/PID **after**
+  the ELF file successfully triggered ROM PICOBOOT, loaded and verified
+  firmware, and requested reboot. The wrapper `-Ncm` switch was added
+  afterward and is pending on-target testing.
