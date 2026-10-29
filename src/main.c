@@ -10,6 +10,7 @@
 #include "tusb.h"
 #include "usb_ncm_network.h"
 #include "usb_cdc_stdio.h"
+#include "sensor_web.h"
 #endif
 #if PROJECT_ENABLE_SENSE_HAT_V1
 #include "sense_hat_led.h"
@@ -296,6 +297,10 @@ int main(void) {
     while (true) {
         sensor_snapshot_t reading;
         sensor_manager_sample(&reading);
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+        // Publish one finished 1Hz reading; HTTP reads only this snapshot.
+        sensor_web_publish_snapshot(&reading);
+#endif
         output(&reading);
 
         // Absolute 1 Hz cadence: do not let a coarse 5 ms polling sleep
