@@ -63,6 +63,24 @@ and flash the experimental ELF via `picotool` if necessary.
 This command still uses the existing script's `picotool load -u -v -x -f`
 flow, which itself must be retested under the new Composite Descriptor.
 
+## Windows CDC ACM terminal (Ctrl+X exit)
+
+On Windows 11, use pySerial Miniterm with an explicit exit character:
+
+```powershell
+py -m serial.tools.miniterm COM3 115200 --exit-char 24
+```
+
+- Exit with **Ctrl+X** (ASCII control code 24 / 0x18). This avoids
+  keyboard-layout/IME issues with Miniterm's default exit shortcut.
+- Use the actual enumerated COM port; `COM3` is the current test example,
+  not a fixed device property.
+- Close Miniterm using Ctrl+X before running `scripts/flash.ps1`,
+  unplugging USB, or deliberately triggering a vendor reset.
+- Do not depend on Miniterm's default exit key in project procedures,
+  examples, or validation instructions. This is a host-terminal
+  setting only; it does not change the RP2350 firmware or USB descriptors.
+
 ## Required target acceptance
 
 - [x] `build-ncm/environment_monitor.elf` cross-compiles and links with pinned Pico SDK 2.3.1, ARM GNU 15.2 and Ninja. User's Windows console reports `[44/44] Linking CXX executable environment_monitor.elf` followed by `[PASS] Firmware ELF:`. SHA-256 of ELF has not been recorded.
