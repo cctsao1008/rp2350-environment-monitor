@@ -1,7 +1,10 @@
 #ifndef RP2350_SENSOR_TUSB_CONFIG_H
 #define RP2350_SENSOR_TUSB_CONFIG_H
 #include "lwipopts.h"
+// Pico SDK sets CFG_TUSB_OS on the compiler command line.
+#ifndef CFG_TUSB_OS
 #define CFG_TUSB_OS OPT_OS_NONE
+#endif
 #define CFG_TUSB_DEBUG 0
 #define CFG_TUD_ENABLED 1
 #define CFG_TUD_ENDPOINT0_SIZE 64

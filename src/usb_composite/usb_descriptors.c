@@ -45,9 +45,9 @@ uint8_t const *tud_descriptor_device_cb(void) {
 static const uint8_t config_desc[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_TOTAL, 0, TOTAL_LEN, 0, 100),
     // Network CDC-NCM (two interfaces): INT IN 0x81, BULK OUT/IN 0x02/0x82.
+    // Pinned TinyUSB 2.3.1 SDK macro takes exactly 9 arguments.
     TUD_CDC_NCM_DESCRIPTOR(ITF_NET, STR_NET, STR_MAC,
-        0x81, 64, 0x02, 0x82, 64, CFG_TUD_NET_MTU,
-        50, NCM_NETWORK_CAPS_ETH_FILTER | NCM_NETWORK_CAPS_NTB_INPUT_SIZE),
+        0x81, 64, 0x02, 0x82, 64, CFG_TUD_NET_MTU),
     // CDC ACM console (two interfaces): INT IN 0x83, BULK OUT/IN 0x04/0x84.
     TUD_CDC_DESCRIPTOR(ITF_CDC, STR_CONSOLE,
         0x83, 8, 0x04, 0x84, 64),
@@ -64,9 +64,14 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
 // In particular, do not omit the reset function subset.
 #define BOS_TOTAL_LEN      (TUD_BOS_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
 
-#define MS_OS_20_DESC_LEN (0xB2 + RPI_RESET_MS_OS_20_DESC_LEN)
+// Original pinned-TinyUSB WINNCM set is 0xB2 bytes; pico_usb_reset
+// appends a separate RPI_RESET_MS_OS_20_DESC_LEN function subset.
+// The configuration subset includes both functions, while the WINNCM
+// function subset length stays at (0xB2 - 0x0A - 0x08).
+#define NCM_MS_OS_20_DESC_LEN 0xB2
+#define MS_OS_20_DESC_LEN (NCM_MS_OS_20_DESC_LEN + RPI_RESET_MS_OS_20_DESC_LEN)
 
-// BOS Descriptor is required for webUSB
+// BOS carries one MS OS 2.0 platform capability for WINNCM + vendor reset.
 uint8_t const desc_bos[] =
 {
   // total length, number of device caps
@@ -90,14 +95,14 @@ uint8_t const desc_ms_os_20[] =
   U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_CONFIGURATION), 0, 0, U16_TO_U8S_LE(MS_OS_20_DESC_LEN-0x0A),
 
   // Function Subset header: length, type, first interface, reserved, subset length
-  U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION), ITF_NUM_CDC, 0, U16_TO_U8S_LE(0xB2-0x0A-0x08),
+  U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION), ITF_NET, 0, U16_TO_U8S_LE(NCM_MS_OS_20_DESC_LEN-0x0A-0x08),
 
   // MS OS 2.0 Compatible ID descriptor: length, type, compatible ID, sub compatible ID
   U16_TO_U8S_LE(0x0014), U16_TO_U8S_LE(MS_OS_20_FEATURE_COMPATBLE_ID), 'W', 'I', 'N', 'N', 'C', 'M', 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // sub-compatible
 
   // MS OS 2.0 Registry property descriptor: length, type
-  U16_TO_U8S_LE(0xB2-0x0A-0x08-0x08-0x14), U16_TO_U8S_LE(MS_OS_20_FEATURE_REG_PROPERTY),
+  U16_TO_U8S_LE(NCM_MS_OS_20_DESC_LEN-0x0A-0x08-0x08-0x14), U16_TO_U8S_LE(MS_OS_20_FEATURE_REG_PROPERTY),
   U16_TO_U8S_LE(0x0007), U16_TO_U8S_LE(0x002A), // wPropertyDataType, wPropertyNameLength and PropertyName "DeviceInterfaceGUIDs\0" in UTF-16
   'D', 0x00, 'e', 0x00, 'v', 0x00, 'i', 0x00, 'c', 0x00, 'e', 0x00, 'I', 0x00, 'n', 0x00, 't', 0x00, 'e', 0x00,
   'r', 0x00, 'f', 0x00, 'a', 0x00, 'c', 0x00, 'e', 0x00, 'G', 0x00, 'U', 0x00, 'I', 0x00, 'D', 0x00, 's', 0x00, 0x00, 0x00,
