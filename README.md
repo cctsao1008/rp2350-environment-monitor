@@ -33,13 +33,26 @@ The prior HTS221 investigation remains documented in
 `docs/sense-hat-v1.md` and `docs/validation.md`; it is archived
 as prior evidence rather than deleted.
 
-## Experimental USB Web management branch (Phase 1)
+## Experimental USB Web branch (Phase 1 / Phase 2)
 
-A proof-of-integration for USB CDC-NCM + CDC ACM + Pico Vendor Reset
-is available on `feature/usb-ncm-web-phase1` with
-`ENABLE_USB_NCM_WEB_PHASE1=ON`. It is not hardware validated.
-See [Phase 1 engineering notes](docs/usb-ncm-phase1.md).
-The default build remains the stable CDC-only configuration.
+The opt-in `feature/usb-ncm-web-phase1` branch uses
+`ENABLE_USB_NCM_WEB_PHASE1=ON`; the default build remains the stable
+CDC-only configuration, and `main` is unchanged.
+
+**Phase 1 hardware PASS (2026-10-30):** Windows 11 CDC-NCM and CDC ACM,
+DHCP, DNS (`sensor.usb`), ICMP, lwIP HTTP, and automatic Vendor Reset /
+ELF update through `scripts/flash.ps1 -BuildDir build-ncm -Ncm`.
+The user reported the stability run completed; its aggregate metrics
+were not supplied. The two-value TinyUSB NCM divisor fix is now
+reproduced in the build directory without modifying the pinned submodule.
+
+**Phase 2 source staged (not rebuilt or device-tested):** a read-only
+Sensor JSON API at `/api/v1/sensors.json` and an embedded live Dashboard
+at `/` use the existing 1Hz Sensor Manager snapshot. No additional I2C
+acquisition and no external web dependencies.
+
+See [Phase 1 evidence](docs/usb-ncm-phase1.md) and
+[Phase 2 API / implementation notes](docs/usb-web-phase2.md).
 
 ## Baseline architecture
 
