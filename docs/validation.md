@@ -798,3 +798,41 @@ Cross-build, Windows composite enumeration, network and
 `picotool -f` automatic vendor reset all remain PENDING.
 See `docs/usb-ncm-phase1.md`.
 No modifications to factory calibration or Sense HAT behavior.
+
+
+## 2026-10-30 USB Composite Phase 1 closure / Phase 2 source baseline
+
+This update supersedes the dated 2026-10-29 paragraph that described
+USB CDC-NCM as source-only. Actual Windows 11 hardware evidence:
+
+- [x] USB Composite: CDC ACM COM3, Vendor Reset and Windows NCM driver
+      all enumerated with PnP status OK (development VID:PID CAFE:40A3).
+- [x] DHCP: Windows received 192.168.7.2/24, gateway device 192.168.7.1.
+- [x] ICMP: 4/4 replies, 1ms RTT in the submitted command output.
+- [x] DNS: sensor.usb resolved to 192.168.7.1.
+- [x] HTTP: 200 OK for /index.html via both IP and hostname.
+- [x] CDC diagnostic output: all six sensor channels observed and
+      sequence 1575..1604 showed 29 consecutive 1000ms intervals.
+- [x] Short mixed HTTP/CDC run: 17/17 HTTP 200; original 30-request
+      sequence was not completed in the submitted output.
+- [x] Automatic ROM PICOBOOT and ELF verify: picotool 2.3.1 with
+      explicit application --vid 51966 --pid 16547 -f after ELF file.
+      scripts/flash.ps1 -BuildDir build-ncm -Ncm also passed; Windows
+      device re-enumeration and HTTP 200 were observed after update.
+- [x] User-reported long stability test completed; the final HTTP
+      summary and complete CDC log were not supplied, so its numeric
+      acceptance metrics are **not verified**.
+
+**Build source closure:** CMake now generates a project-local replacement
+TinyUSB NCM translation unit in the build directory with both NTB
+divisors set to 4; it skips compiling the vendor NCM TU. The pinned
+SDK/TinyUSB source is never modified by the generation step. A previously
+dirty local submodule may still need a separate conscious cleanup.
+Clean-checkout compile of this new CMake mechanism is **not verified**.
+
+**Phase 2:** read-only JSON endpoint /api/v1/sensors.json and embedded
+Dashboard at / are committed on the feature branch. Sensor data comes
+only from the already-completed 1Hz Sensor Manager snapshot. The new
+source has **not** been rebuilt, flashed or validated on RP2350.
+Per user instruction no additional tests were requested or performed.
+See docs/usb-ncm-phase1.md and docs/usb-web-phase2.md; main is unchanged.
