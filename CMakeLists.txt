@@ -24,6 +24,13 @@ pico_sdk_init()
 # Default setup: Raspberry Pi Sense HAT V1 physically removed.
 # OFF excludes all Sense HAT sources and avoids probing those I2C addresses.
 option(ENABLE_SENSE_HAT_V1 "Build optional Raspberry Pi Sense HAT V1 drivers and console" OFF)
+# Experimental branch-only USB composite networking. OFF keeps the
+# original CDC + picotool path, allowing non-invasive A/B testing.
+option(ENABLE_USB_NCM_WEB_PHASE1 "Experimental CDC-NCM + CDC + vendor reset" OFF)
+if(ENABLE_USB_NCM_WEB_PHASE1 AND ENABLE_SENSE_HAT_V1)
+    message(FATAL_ERROR "Experimental USB-NCM mode currently supports Environment HAT only")
+endif()
+
 
 if(NOT PICO_SDK_VERSION_STRING VERSION_EQUAL "2.3.1")
     message(FATAL_ERROR "Expected Pico SDK 2.3.1, found ${PICO_SDK_VERSION_STRING}")
@@ -52,6 +59,44 @@ if(ENABLE_SENSE_HAT_V1)
     )
 endif()
 
+if(ENABLE_USB_NCM_WEB_PHASE1)
+    # Use the pinned SDK's TinyUSB + lwIP submodules; no FetchContent.
+    foreach(_dep
+        "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
+        "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
+        "${PICO_SDK_PATH}/lib/lwip/src/include/lwip/init.h")
+        if(NOT EXISTS "${_dep}")
+            message(FATAL_ERROR "USB NCM dependency missing: ${_dep}. Run git submodule update --init --recursive")
+        endif()
+    endforeach()
+    target_sources(environment_monitor PRIVATE
+        src/usb_composite/usb_descriptors.c
+        src/usb_composite/usb_ncm_network.c
+        src/usb_composite/usb_cdc_stdio.c
+        "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
+        "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
+    )
+    target_include_directories(environment_monitor PRIVATE
+        src/usb_composite
+        "${PICO_SDK_PATH}/lib/tinyusb/lib/networking"
+    )
+    target_link_libraries(environment_monitor PRIVATE
+        tinyusb_device
+        pico_usb_reset
+        pico_lwip_core
+        pico_lwip_core4
+        pico_lwip_netif
+        pico_lwip_arch
+        pico_lwip_http
+    )
+    target_compile_definitions(environment_monitor PRIVATE
+        # Application provides one merged WINNCM + WINUSB descriptor set.
+        PICO_USB_RESET_SUPPORT_MS_OS_20_DESCRIPTOR=0
+        PICO_USB_RESET_INCLUDE_DEFAULT_APP_DRIVER_CB=1
+        PICO_ENABLE_USB_RESET_VIA_BAUD_RATE=0
+    )
+endif()
+
 target_include_directories(environment_monitor PRIVATE
     src
     third_party/bosch_bme280
@@ -70,10 +115,16 @@ target_compile_definitions(environment_monitor PRIVATE
     PICO_USB_RESET_BOOTSEL_INTERFACE_DISABLE_MASK=1
     PICO_ENABLE_USB_RESET_VIA_VENDOR_INTERFACE=1
     BME280_DOUBLE_ENABLE=1
+    PROJECT_ENABLE_USB_WEB_PHASE1=$<BOOL:${ENABLE_USB_NCM_WEB_PHASE1}>
     PROJECT_ENABLE_SENSE_HAT_V1=$<BOOL:${ENABLE_SENSE_HAT_V1}>
 )
 
-pico_enable_stdio_usb(environment_monitor 1)
+if(ENABLE_USB_NCM_WEB_PHASE1)
+    # pico_stdio_usb cannot own TinyUSB concurrently with our composite stack.
+    pico_enable_stdio_usb(environment_monitor 0)
+else()
+    pico_enable_stdio_usb(environment_monitor 1)
+endif()
 pico_enable_stdio_uart(environment_monitor 0)
 
 # ELF is the canonical flashing image. Other generated formats are NOT

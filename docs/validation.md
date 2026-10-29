@@ -787,3 +787,14 @@ ppm or concentration. See Sensirion Gas Index Algorithm documentation.
 
 Sense HAT V1 remains physically absent and disabled. **No firmware or
 calibration changes** were made for this capture.
+
+
+## 2026-10-29 USB NCM web architecture experimental branch
+
+The `feature/usb-ncm-web-phase1` branch contains opt-in source
+integration for TinyUSB NCM + CDC ACM + Vendor Reset, lwIP DHCP/DNS
+and a stock HTTP diagnostic page. This is **SOURCE INTEGRATION ONLY**.
+Cross-build, Windows composite enumeration, network and
+`picotool -f` automatic vendor reset all remain PENDING.
+See `docs/usb-ncm-phase1.md`.
+No modifications to factory calibration or Sense HAT behavior.

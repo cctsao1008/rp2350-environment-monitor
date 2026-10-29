@@ -6,6 +6,11 @@
 #include "pico/stdlib.h"
 #include "sensor_manager.h"
 #include "project_config.h"
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+#include "tusb.h"
+#include "usb_ncm_network.h"
+#include "usb_cdc_stdio.h"
+#endif
 #if PROJECT_ENABLE_SENSE_HAT_V1
 #include "sense_hat_led.h"
 #include "sense_hat_probe.h"
@@ -201,7 +206,14 @@ static void output(const sensor_snapshot_t *s) {
 }
 
 int main(void) {
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+    usb_ncm_network_identity_init();
+    (void)tusb_init();
+    usb_cdc_stdio_init();
+    bool usb_network_ok = usb_ncm_network_init();
+#else
     stdio_init_all();
+#endif
     i2c_init(SENSOR_BUS, SENSOR_BUS_HZ);
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
@@ -214,11 +226,24 @@ int main(void) {
     bool sense_hat_led_off = sense_hat_led_clear_startup(SENSOR_BUS);
     sense_hat_marquee_init(SENSOR_BUS, sense_hat_led_off);
 #else
-    // Let USB CDC connect as before, without touching Sense HAT I2C.
+    // Preserve CDC attach window; in NCM mode SERVICE USB and lwIP here.
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+    absolute_time_t usb_attach_deadline = make_timeout_time_ms(3000);
+    while (!time_reached(usb_attach_deadline)) {
+        tud_task();
+        usb_ncm_network_service();
+        sleep_ms(1);
+    }
+#else
     sleep_ms(3000);
+#endif
 #endif
     printf("\r\nRP2350 Environment Monitor - Environment Sensor HAT acquisition\r\n");
     printf("Board: waveshare_rp2350_pizero, I2C1 GPIO2/3, 100kHz\r\n");
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+    printf("USB: CDC-NCM + CDC ACM + Vendor Reset; network=%s\r\n",
+           usb_network_ok ? "READY (http://192.168.7.1)" : "ERROR");
+#endif
 #if PROJECT_ENABLE_SENSE_HAT_V1
     printf("Sense HAT V1 LED matrix: %s\r\n",
            sense_hat_led_off ? "OFF (framebuffer cleared)" :
@@ -286,6 +311,10 @@ int main(void) {
             sense_hat_console_poll();
             sense_hts221_recovery_poll();
             sense_hat_marquee_poll();
+#endif
+#if PROJECT_ENABLE_USB_WEB_PHASE1
+            tud_task();  // exactly one owner of the USB device stack
+            usb_ncm_network_service();
 #endif
             sleep_ms(1);
         }

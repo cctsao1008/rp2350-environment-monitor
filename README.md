@@ -33,6 +33,14 @@ The prior HTS221 investigation remains documented in
 `docs/sense-hat-v1.md` and `docs/validation.md`; it is archived
 as prior evidence rather than deleted.
 
+## Experimental USB Web management branch (Phase 1)
+
+A proof-of-integration for USB CDC-NCM + CDC ACM + Pico Vendor Reset
+is available on `feature/usb-ncm-web-phase1` with
+`ENABLE_USB_NCM_WEB_PHASE1=ON`. It is not hardware validated.
+See [Phase 1 engineering notes](docs/usb-ncm-phase1.md).
+The default build remains the stable CDC-only configuration.
+
 ## Baseline architecture
 
 - **Target:** `waveshare_rp2350_pizero` (RP2350 Arm; I2C1 on GPIO2/3).
