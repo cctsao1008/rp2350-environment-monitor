@@ -5,23 +5,20 @@
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
 #include "sensor_manager.h"
+#include "project_config.h"
+#if PROJECT_ENABLE_SENSE_HAT_V1
 #include "sense_hat_led.h"
 #include "sense_hat_probe.h"
 #include "sense_hat_marquee.h"
 #include "sense_hat_console.h"
+#endif // PROJECT_ENABLE_SENSE_HAT_V1
 
 #define SENSOR_BUS i2c1
 #define SDA_PIN 2u
 #define SCL_PIN 3u
 #define SENSOR_BUS_HZ 100000u
 
-// Temporary debug output policy: only HTS221 data on USB CDC.
-// All sensors STILL initialize and sample at 1Hz (including BME280
-// compensation for SGP40); no acquisition, I2C or control path changes.
-// Change to 0 to restore the previous full telemetry stream.
-#define HTS221_ONLY_OUTPUT 1
-
-#if !HTS221_ONLY_OUTPUT
+#if PROJECT_ENABLE_SENSE_HAT_V1
 // Generic read probing does not count physical devices. SGP40 requires a
 // command before read, and TSL2591 has an additional read-only 0x28 alias.
 static void scan_i2c_once(void) {
@@ -37,7 +34,7 @@ static void scan_i2c_once(void) {
     }
     printf(" (%u responders; not a device count)\r\n", responders);
 }
-#endif // !HTS221_ONLY_OUTPUT
+#endif // PROJECT_ENABLE_SENSE_HAT_V1
 
 static void print_fixed(int32_t centi) {
     uint32_t absolute = (uint32_t)(centi < 0 ? -(int64_t)centi : centi);
@@ -45,15 +42,13 @@ static void print_fixed(int32_t centi) {
            (unsigned long)(absolute / 100),
            (unsigned long)(absolute % 100));
 }
-#if !HTS221_ONLY_OUTPUT
 static void print_thousandths(int32_t milli) {
     uint32_t absolute = (uint32_t)(milli < 0 ? -(int64_t)milli : milli);
     printf("%s%lu.%03lu", milli < 0 ? "-" : "",
            (unsigned long)(absolute / 1000),
            (unsigned long)(absolute % 1000));
 }
-#endif // !HTS221_ONLY_OUTPUT
-
+#if PROJECT_ENABLE_SENSE_HAT_V1
 // The HTS221 data format is shared between HTS-only and all-sensor modes.
 static void output_hts221(const sensor_snapshot_t *s) {
     // Optional Raspberry Pi Sense HAT V1 measurements.
@@ -82,14 +77,11 @@ static void output_hts221(const sensor_snapshot_t *s) {
     }
 
 }
+#endif // PROJECT_ENABLE_SENSE_HAT_V1
 
 static void output(const sensor_snapshot_t *s) {
     printf("[sample=%lu uptime=%lums]\r\n",
            (unsigned long)s->sequence, (unsigned long)s->uptime_ms);
-#if HTS221_ONLY_OUTPUT
-    output_hts221(s);
-#else
-
     if (s->bme280_ok) {
         printf("BME280  T=");
         print_fixed(s->bme280.temperature_centi_c);
@@ -168,6 +160,7 @@ static void output(const sensor_snapshot_t *s) {
         printf("ICM20948 ERROR\r\n");
     }
 
+#if PROJECT_ENABLE_SENSE_HAT_V1
     output_hts221(s);
 
     if (s->lps25h_ok) {
@@ -204,7 +197,7 @@ static void output(const sensor_snapshot_t *s) {
     } else {
         printf("LSM9DS1  NOT_READY / ERROR / NOT_INSTALLED\r\n");
     }
-#endif // HTS221_ONLY_OUTPUT
+#endif // PROJECT_ENABLE_SENSE_HAT_V1
 }
 
 int main(void) {
@@ -215,36 +208,35 @@ int main(void) {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    // The ATtiny88 can initialize later than RP2350 on cold power-on,
-    // or retain an old LED frame when only RP2350 is reset. Clear as
-    // early as possible and several more times over the existing
-    // 3-second USB CDC connect interval. Startup display default: OFF.
+#if PROJECT_ENABLE_SENSE_HAT_V1
+    // Optional Sense HAT legacy mode: clear the ATtiny88 framebuffer
+    // repeatedly during the 3-second CDC connection interval.
     bool sense_hat_led_off = sense_hat_led_clear_startup(SENSOR_BUS);
     sense_hat_marquee_init(SENSOR_BUS, sense_hat_led_off);
-    printf("\r\nRP2350 Environment Monitor - all sensor acquisition\r\n");
+#else
+    // Let USB CDC connect as before, without touching Sense HAT I2C.
+    sleep_ms(3000);
+#endif
+    printf("\r\nRP2350 Environment Monitor - Environment Sensor HAT acquisition\r\n");
     printf("Board: waveshare_rp2350_pizero, I2C1 GPIO2/3, 100kHz\r\n");
+#if PROJECT_ENABLE_SENSE_HAT_V1
     printf("Sense HAT V1 LED matrix: %s\r\n",
            sense_hat_led_off ? "OFF (framebuffer cleared)" :
            "not detected / clear failed");
-#if !HTS221_ONLY_OUTPUT
     scan_i2c_once();
-    // Read-only identity diagnostics (otherwise omit other sensor output).
     sense_hat_probe_identify(SENSOR_BUS);
+    sense_hts221_preinit_snapshot(SENSOR_BUS);
+#else
+    printf("Mode: ENVIRONMENT_HAT_ONLY (Sense HAT V1 support disabled)\r\n");
 #endif
 
-    // Observe the real HTS221 register state BEFORE any HTS221 init write.
-    // RP2350-only reset and full power loss may yield different values.
-    sense_hts221_preinit_snapshot(SENSOR_BUS);
     sensor_presence_t present = {0};
     sensor_manager_init(SENSOR_BUS, &present);
-    // Observe-only HTS221 monitoring (no automatic heater cycles).
+#if PROJECT_ENABLE_SENSE_HAT_V1
+    // Preserve optional HTS221 diagnostics only in Sense HAT builds.
     sense_hts221_recovery_init();
-    // Run bounded HTS221 register/mode verification before the first 1Hz frame.
     if (present.hts221) sense_hts221_verify_once();
-#if HTS221_ONLY_OUTPUT
-    printf("Output mode: HTS221_ONLY (other sensor telemetry hidden, acquisition intact)\r\n");
-    printf("INIT HTS221=%s\r\n", present.hts221 ? "OK" : "FAIL");
-#else
+#endif
     printf("INIT BME280=%s TSL2591=%s LTR390=%s SGP40=%s "
            "ICM20948=%s AK09916(mag)=%s\r\n",
            present.bme280 ? "OK" : "FAIL",
@@ -253,19 +245,22 @@ int main(void) {
            present.sgp40 ? "OK" : "FAIL",
            present.icm20948 ? "OK" : "FAIL",
            present.ak09916 ? "OK" : "FAIL");
+#if PROJECT_ENABLE_SENSE_HAT_V1
     printf("Sense HAT V1 INIT HTS221=%s LPS25H=%s LSM9DS1=%s\r\n",
            present.hts221 ? "OK" : "FAIL",
            present.lps25h ? "OK" : "FAIL",
            present.lsm9ds1 ? "OK" : "FAIL");
+#endif
     if (!present.ak09916) {
         printf("WARN: Magnetometer bypass not available; 6-axis IMU may still work.\r\n");
     }
-#endif
+#if PROJECT_ENABLE_SENSE_HAT_V1
     printf("LED controls: type 'led demo', 'led TEXT', 'led b 1..4' or 'led off'\r\n");
     printf("HTS221 tests: 'hts diag' (read only), 'hts oneshot' (restore 7Hz after test)\r\n");
     printf("HTS221: 'hts avgtest' tests default averaging and restores original\r\n");
     printf("HTS221: 'hts dump' dumps defined registers and raw/calibration data\r\n");
     printf("HTS221 AUTO: 5s raw logs, automatic heating disabled\r\n");
+#endif
     absolute_time_t next = get_absolute_time();
     while (true) {
         sensor_snapshot_t reading;
@@ -282,14 +277,16 @@ int main(void) {
             if (remaining_us <= 0) break;
 
             // Leave the last few milliseconds for precise SDK sleep_until;
-            // animation work (~192 frame bytes at 100 kHz) may take several ms.
+            // do not force 1ms polling into the sampling deadline.
             if (remaining_us <= 5000) {
                 sleep_until(next);
                 break;
             }
+#if PROJECT_ENABLE_SENSE_HAT_V1
             sense_hat_console_poll();
             sense_hts221_recovery_poll();
             sense_hat_marquee_poll();
+#endif
             sleep_ms(1);
         }
         const int64_t late_us = absolute_time_diff_us(

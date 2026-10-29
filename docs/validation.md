@@ -710,3 +710,20 @@ recalibration.
 - [ ] Root cause inside sensor or board not established.
 
 No Firmware modifications accompany this observation update.
+
+
+## 2026-10-29: Raspberry Pi Sense HAT V1 physically removed
+
+- [x] Firmware source: optional Sense HAT build is OFF by default in CMake.
+- [x] Firmware source: HTS221/LPS25H/LSM9DS1 init and read paths disabled
+      with the same compile-time switch; all Sense HAT LED, CLI, BOOT,
+      preinit and automatic diagnostics are disabled by default.
+- [x] Firmware source: 1Hz BME280/TSL2591/LTR390/SGP40/ICM20948
+      and AK09916 console outputs restored; BME280 compensation remains.
+- [ ] Cross-compile current main on Windows with Pico SDK 2.3.1.
+- [ ] Flash RP2350 and verify Environment-HAT-only startup and 1Hz log.
+- [ ] After a future physical Sense HAT reconnection, re-enable with
+      `-DENABLE_SENSE_HAT_V1=ON` and reverify.
+
+The historical HTS221 saturation investigation remains evidence but is
+not an active test with the Sense HAT physically absent.

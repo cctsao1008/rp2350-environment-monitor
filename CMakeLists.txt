@@ -21,6 +21,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+# Default setup: Raspberry Pi Sense HAT V1 physically removed.
+# OFF excludes all Sense HAT sources and avoids probing those I2C addresses.
+option(ENABLE_SENSE_HAT_V1 "Build optional Raspberry Pi Sense HAT V1 drivers and console" OFF)
+
 if(NOT PICO_SDK_VERSION_STRING VERSION_EQUAL "2.3.1")
     message(FATAL_ERROR "Expected Pico SDK 2.3.1, found ${PICO_SDK_VERSION_STRING}")
 endif()
@@ -28,11 +32,6 @@ endif()
 add_executable(environment_monitor
     src/main.c
     src/sensor_manager.c
-    src/sense_hat_led.c
-    src/sense_hat_marquee.c
-    src/sense_hat_console.c
-    src/sense_hat_probe.c
-    src/sense_hat_sensors.c
     src/sensors/bme280_port.c
     src/sensors/sensor_i2c_util.c
     src/sensors/tsl2591.c
@@ -42,6 +41,16 @@ add_executable(environment_monitor
     third_party/bosch_bme280/bme280.c
     third_party/sensirion_gas_index/sensirion_gas_index_algorithm.c
 )
+
+if(ENABLE_SENSE_HAT_V1)
+    target_sources(environment_monitor PRIVATE
+        src/sense_hat_led.c
+        src/sense_hat_marquee.c
+        src/sense_hat_console.c
+        src/sense_hat_probe.c
+        src/sense_hat_sensors.c
+    )
+endif()
 
 target_include_directories(environment_monitor PRIVATE
     src
@@ -61,6 +70,7 @@ target_compile_definitions(environment_monitor PRIVATE
     PICO_USB_RESET_BOOTSEL_INTERFACE_DISABLE_MASK=1
     PICO_ENABLE_USB_RESET_VIA_VENDOR_INTERFACE=1
     BME280_DOUBLE_ENABLE=1
+    PROJECT_ENABLE_SENSE_HAT_V1=$<BOOL:${ENABLE_SENSE_HAT_V1}>
 )
 
 pico_enable_stdio_usb(environment_monitor 1)

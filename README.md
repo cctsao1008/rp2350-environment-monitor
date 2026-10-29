@@ -4,6 +4,35 @@ Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environme
 
 **Status:** P0 five sensor identities PASS; P1 all-sensor initial data-acquisition PASS on hardware (2026-10-28), with 6/6 INIT OK and nine consecutive 1 Hz USB CDC samples. **Remaining:** SGP40 VOC Index after warmup, LTR390 UV stimulus response, lux/IMU calibration, offline incremental build and long-duration validation. See [P1 all-sensor evidence](docs/p1-all-sensors.md) and [validation record](docs/validation.md).
 
+
+
+## Current hardware configuration (2026-10-29)
+
+**Default build: Environment Sensor HAT only.** The Raspberry Pi Sense HAT V1
+has been physically removed. Build option `ENABLE_SENSE_HAT_V1` defaults to
+`OFF` (and `PROJECT_ENABLE_SENSE_HAT_V1=0`). All Sense HAT V1 drivers are
+excluded from the ELF and all corresponding runtime paths are disabled:
+no HTS221/LPS25H/LSM9DS1 init, reads, register snapshots, BOOT reloads,
+HTS automatic diagnostics, ATtiny88 LED clears, I2C identity scans, or
+LED/HTS console polling. No `HTS221 ERROR / NOT_INSTALLED` clutter is printed.
+The normal 3-second USB CDC attach window remains, with no Sense HAT I2C.
+
+**Enabled 1 Hz USB CDC stream:** BME280 (T/RH/P), TSL2591 (light),
+LTR390 (UV/ALS), SGP40 (SRAW/VOC Index) and ICM20948 including AK09916.
+The BME280→SGP40 compensation dependency is unchanged. If one of these
+sensors is absent or fails it reports its own `ERROR` status; we do not
+claim new hardware verification on this build yet.
+
+To restore Sense HAT V1 **after physically reconnecting it**, configure
+CMake with `-DENABLE_SENSE_HAT_V1=ON`, rebuild and flash. For the current
+removed-HAT configuration leave it `OFF`. On an existing build directory
+that previously had `ON` explicitly set, CMake caches the option: set
+`-DENABLE_SENSE_HAT_V1=OFF` while configuring before building.
+
+The prior HTS221 investigation remains documented in
+`docs/sense-hat-v1.md` and `docs/validation.md`; it is archived
+as prior evidence rather than deleted.
+
 ## Baseline architecture
 
 - **Target:** `waveshare_rp2350_pizero` (RP2350 Arm; I2C1 on GPIO2/3).
