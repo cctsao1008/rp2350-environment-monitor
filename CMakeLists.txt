@@ -69,6 +69,47 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
             message(FATAL_ERROR "USB NCM dependency missing: ${_dep}. Run git submodule update --init --recursive")
         endif()
     endforeach()
+    # Windows 11 UsbNcm requires NTB IN/OUT divisors of 4 (pinned
+    # TinyUSB provides 1). Generate a replacement source in the build
+    # directory, rather than writing into the pinned Git submodule.
+    set(_tinyusb_ncm_original
+        "${PICO_SDK_PATH}/lib/tinyusb/src/class/net/ncm_device.c")
+    if(NOT EXISTS "${_tinyusb_ncm_original}")
+        message(FATAL_ERROR "Pinned TinyUSB NCM driver missing: ${_tinyusb_ncm_original}")
+    endif()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${_tinyusb_ncm_original}")
+    file(READ "${_tinyusb_ncm_original}" _ncm_source)
+    foreach(_field IN ITEMS wNdbInDivisor wNdbOutDivisor)
+        set(_from "  .${_field}            = 1,")
+        set(_to "  .${_field}            = 4,")
+        string(FIND "${_ncm_source}" "${_from}" _old_at)
+        string(FIND "${_ncm_source}" "${_to}" _new_at)
+        if(_old_at GREATER_EQUAL 0 AND _new_at EQUAL -1)
+            string(REPLACE "${_from}" "${_to}" _ncm_source "${_ncm_source}")
+        elseif(NOT (_old_at EQUAL -1 AND _new_at GREATER_EQUAL 0))
+            message(FATAL_ERROR
+                "Unexpected pinned TinyUSB ${_field} assignment; inspect driver before building")
+        endif()
+    endforeach()
+    set(_ncm_override "${CMAKE_CURRENT_BINARY_DIR}/generated/tinyusb_ncm_device.c")
+    if(EXISTS "${_ncm_override}")
+        file(READ "${_ncm_override}" _existing_ncm_override)
+    else()
+        set(_existing_ncm_override "")
+    endif()
+    if(NOT "${_existing_ncm_override}" STREQUAL "${_ncm_source}")
+        file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+        file(WRITE "${_ncm_override}" "${_ncm_source}")
+    endif()
+    # TinyUSB's interface sources include the unmodified NCM translation unit.
+    # Suppress only that TU for this executable, replacing it with the generated
+    # equivalent that differs solely in the two NTB divisor assignments.
+    set_source_files_properties("${_tinyusb_ncm_original}"
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+    target_sources(environment_monitor PRIVATE "${_ncm_override}")
+    message(STATUS "USB NCM: using generated NTB-divisor=4 driver (SDK untouched)")
+
     target_sources(environment_monitor PRIVATE
         src/usb_composite/usb_descriptors.c
         src/usb_composite/usb_ncm_network.c
