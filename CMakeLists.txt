@@ -113,6 +113,7 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
     target_sources(environment_monitor PRIVATE
         src/usb_composite/usb_descriptors.c
         src/usb_composite/usb_ncm_network.c
+        src/usb_composite/sensor_web.c
         src/usb_composite/usb_cdc_stdio.c
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
