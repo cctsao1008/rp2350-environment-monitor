@@ -66,8 +66,9 @@ Dashboard converts fixed-point quantities for human display.
 
 ## Reproducible TinyUSB divisor fix
 
-At configure time, the project reads the pinned TinyUSB
-`src/class/net/ncm_device.c`, checks the expected assignments, and writes
+At configure time, the project reads the checked-out pinned TinyUSB
+Git HEAD object for `src/class/net/ncm_device.c` (ignoring any local
+working-tree edits), checks the expected assignments, and writes
 a generated driver in the **build directory** with `wNdbInDivisor=4` and
 `wNdbOutDivisor=4`. For this application CMake skips compilation of the
 original NCM translation unit and compiles the generated copy instead.
