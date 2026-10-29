@@ -120,6 +120,9 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
     )
     target_include_directories(environment_monitor PRIVATE
         src/usb_composite
+        # Generated NCM source is outside the vendor directory; retain its
+        # original local include search path for ncm.h / net_device.h.
+        "${PICO_SDK_PATH}/lib/tinyusb/src/class/net"
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking"
     )
     target_link_libraries(environment_monitor PRIVATE
