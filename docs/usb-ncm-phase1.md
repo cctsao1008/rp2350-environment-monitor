@@ -1,6 +1,6 @@
 # USB CDC-NCM Web Phase 1 — Experimental Bring-up
 
-Status: **source integrated, not cross-compiled or hardware verified** (2026-10-29).
+Status: **cross-build PASS on Windows; USB enumeration, network, and hardware validation PENDING** (2026-10-29).
 This work is confined to `feature/usb-ncm-web-phase1`. The default
 `ENABLE_USB_NCM_WEB_PHASE1=OFF` uses the previous firmware path unchanged.
 
@@ -65,7 +65,7 @@ flow, which itself must be retested under the new Composite Descriptor.
 
 ## Required target acceptance
 
-- [ ] `build-ncm/environment_monitor.elf` cross-compiles with Pico SDK 2.3.1.
+- [x] `build-ncm/environment_monitor.elf` cross-compiles and links with pinned Pico SDK 2.3.1, ARM GNU 15.2 and Ninja. User's Windows console reports `[44/44] Linking CXX executable environment_monitor.elf` followed by `[PASS] Firmware ELF:`. SHA-256 of ELF has not been recorded.
 - [ ] Windows enumerates both CDC ACM COM port and USB NCM adapter.
 - [ ] Device's HTTP endpoint at `http://192.168.7.1/` opens
       (expect **lwIP sample page**, not dashboard).
@@ -106,3 +106,16 @@ cross-build and physical tests complete.
 - Pinned TinyUSB `examples/device/net_lwip_webserver` and
   `lib/networking/dhserver.c`, `dnserver.c`, MIT licensed.
 - Pico SDK's pinned lwIP library and built-in HTTP server.
+
+## 2026-10-29 Windows cross-build evidence
+
+The user ran `git pull --ff-only` followed by
+`./scripts/build.ps1 -BuildDir build-ncm` on the feature branch.
+The build reported ARM GCC 15.2, Pico SDK submodule
+`079c6f39023649b154152db30f1d781e884879bc`, and
+`[44/44] Linking CXX executable environment_monitor.elf`.
+It ended with `[PASS] Firmware ELF: D:\\my-github\\rp2350-environment-monitor\\build-ncm\\environment_monitor.elf`.
+This is user-observed **compilation/link PASS** only. There is no
+flashing, Windows CDC-NCM, DHCP, HTTP, serial enumeration, or
+application-to-ROM Vendor Reset result in the submitted evidence.
+Keep `main` unchanged until the experiments pass.
