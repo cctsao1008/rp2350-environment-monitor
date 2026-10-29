@@ -144,8 +144,6 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
   return false;
 }
 
-#endif
-
 
 static const char *const strings[] = {
     [STR_MANUF] = "RP2350 Sensor Experiment",
