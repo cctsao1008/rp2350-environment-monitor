@@ -48,8 +48,11 @@ reproduced in the build directory without modifying the pinned submodule.
 
 **Phase 2 source staged (not rebuilt or device-tested):** a read-only
 Sensor JSON API at `/api/v1/sensors.json` and an embedded live Dashboard
-at `/` use the existing 1Hz Sensor Manager snapshot. No additional I2C
-acquisition and no external web dependencies.
+at `/` use the existing 1Hz Sensor Manager snapshot. The Dashboard now
+identifies stale/repeated sequences, reports per-sensor validity, and
+plots browser-only five-minute trends for BME280 temperature/RH,
+LTR390 illuminance and SGP40 VOC Index. No additional I2C acquisition,
+persistent history, or external web dependencies.
 
 See [Phase 1 evidence](docs/usb-ncm-phase1.md) and
 [Phase 2 API / implementation notes](docs/usb-web-phase2.md).
