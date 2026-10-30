@@ -15,7 +15,20 @@ from HTTP, or Sensor Manager refactoring.
 - JSON API: `http://sensor.usb/api/v1/sensors.json`
 - HTTP GET only; no device-write/control endpoints, no HTTPS/authentication.
 - Entire Dashboard is embedded; no external CSS, JS, or Internet access.
-- Browser polls approximately each second, not a stream.
+- Browser polls approximately each second, not a stream. Polls are serialized
+  (no overlapping HTTP requests) with a 4-second request timeout.
+- The Dashboard now contains four **volatile browser-only** 5-minute trends:
+  temperature, humidity (BME280), estimated ambient lux (LTR390) and VOC
+  Index (SGP40). It collects at most 301 distinct snapshots while open.
+  It does **not** store history in MCU Flash or on the host filesystem.
+- A snapshot counts as fresh only when `sequence` advances; re-reading
+  the same JSON does **not** imply a new sample. After 4.5 seconds
+  without sequence progress, the UI reports `Stale`. Transport failures
+  report `Disconnected`. After a counter/uptime decrease (MCU reboot),
+  the browser clears the old trend epoch.
+- Invalid samples produce gaps, not invented zero-values. Saturated
+  TSL2591 measurements, SGP40 warm-up, compensation errors and AK09916
+  overflow/uncalibrated status are displayed explicitly.
 
 Existing `ENABLE_USB_NCM_WEB_PHASE1=ON` remains the opt-in for the experimental
 Composite/NCM firmware including Phase 2. Stable CDC-only is still the
@@ -31,7 +44,10 @@ pauses during the existing blocking I2C transactions.
 
 Each API GET allocates its own bounded 2048-byte JSON response in lwIP
 heap and releases it in `fs_close_custom()`, rather than sharing a mutable
-response buffer between clients. HTTP 503 JSON is returned before the first
+response buffer between clients. The custom-file code uses
+`FS_FILE_FLAGS_HEADER_INCLUDED` to serve explicit HTTP status and content
+headers; `LWIP_HTTPD_FILE_EXTENSION=1` stores the per-request allocation
+pointer. Responses exceeding the fixed capacity fail closed as HTTP 503. HTTP 503 JSON is returned before the first
 sample or on allocation/encoding failure.
 
 ## JSON contract
@@ -85,7 +101,7 @@ Phase 1 hardware evidence supports NCM, CDC, DHCP, DNS, ICMP, stock HTTP
 and `flash.ps1 -Ncm`. The user reported completing the long stability
 run without sharing a summary; no numerical pass/fail data are inferred.
 
-Phase 2 JSON, Dashboard and clean-checkout CMake override are
-**committed but not rebuilt or target-validated**, by explicit request
+Phase 2 JSON, Dashboard, five-minute browser trends and clean-checkout
+CMake override are **committed but not rebuilt or target-validated**, by explicit request
 for no further tests. This work must not be described as hardware PASS
 or merged into stable `main` on an unsupported claim.
