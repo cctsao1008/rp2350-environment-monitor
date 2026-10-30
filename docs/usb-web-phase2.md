@@ -24,7 +24,10 @@ from HTTP, or Sensor Manager refactoring.
 - A snapshot counts as fresh only when `sequence` advances; re-reading
   the same JSON does **not** imply a new sample. After 4.5 seconds
   without sequence progress, the UI reports `Stale`. Transport failures
-  report `Disconnected`. After a counter/uptime decrease (MCU reboot),
+  report `Disconnected`. The API's HTTP 503 is reported separately as
+  `Initializing` (before the first sample) or `Unavailable` (resource
+  pressure), not incorrectly classified as a USB disconnect.
+  After a counter/uptime decrease (MCU reboot),
   the browser clears the old trend epoch.
 - Invalid samples produce gaps, not invented zero-values. Saturated
   TSL2591 measurements, SGP40 warm-up, compensation errors and AK09916
