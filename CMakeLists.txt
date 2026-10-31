@@ -159,6 +159,10 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
     )
+    if(ENABLE_BINARY_WEB_EXPORT)
+        target_sources(environment_monitor PRIVATE src/usb_composite/log_web.c)
+        target_include_directories(environment_monitor PRIVATE src/logger)
+    endif()
     target_include_directories(environment_monitor PRIVATE
         src/usb_composite
         # Generated NCM source is outside the vendor directory; retain its
