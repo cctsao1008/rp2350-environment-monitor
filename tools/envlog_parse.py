@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline decoder for RP2350 Environment Binary Logger v1.
 
-Input is a *physical* BOOTSEL/picotool read of flash 0x10400000..0x11000000.
+Input is a USB Vendor Reset / picotool read of flash 0x10400000..0x11000000.
 No HTTP endpoint or automatic network access is used. Requires Python 3.9+.
 """
 import argparse
@@ -131,6 +131,34 @@ def page_rows(page, meta):
         })
     return rows, None
 
+def inspect_headers(image):
+    """Classify the partition independently from record count.
+
+    Header-only sectors occur when the first ten 1 Hz samples have not yet
+    been committed into a full 256-byte program page.
+    """
+    info = dict(
+        sectors=len(image)//SECTOR,
+        erased_sectors=0,
+        valid_headers=0,
+        header_only_sectors=0,
+        invalid_or_unknown_sectors=0,
+    )
+    erased_page = b"\xff" * PAGE
+    erased_sector = b"\xff" * SECTOR
+    for at in range(0, len(image)-SECTOR+1, SECTOR):
+        sector = image[at:at+SECTOR]
+        if sector == erased_sector:
+            info["erased_sectors"] += 1
+        elif sector_header(sector[:HEADER]) is not None:
+            info["valid_headers"] += 1
+            if sector[PAGE:PAGE*2] == erased_page:
+                info["header_only_sectors"] += 1
+        else:
+            info["invalid_or_unknown_sectors"] += 1
+    return info
+
+
 def scan(image):
     """Scans complete sectors in chronological generation order."""
     sectors, problems = [], []
@@ -138,8 +166,8 @@ def scan(image):
         meta = sector_header(image[off:off+HEADER])
         if meta is not None:
             sectors.append((meta["generation"], off, meta))
-        elif image[off:off+HEADER] != b"\xff" * HEADER:
-            problems.append(("sector", off, "unrecognized_header"))
+        elif image[off:off+SECTOR] != b"\xff" * SECTOR:
+            problems.append(("sector", off, "non_erased_without_valid_header"))
     if not sectors:
         return [], problems
     newest = sectors[0][0]
@@ -175,8 +203,22 @@ def main():
             out = csv.DictWriter(fp, fieldnames=FIELDS)
             out.writeheader()
             out.writerows(rows)
+    info = inspect_headers(image)
     sessions = len(set(x["session_id"] for x in rows))
-    print(f"Decoded: {len(rows)} samples, {sessions} sessions, {len(problems)} warnings")
+    print(
+        f"Flash: {info['sectors']} sectors; "
+        f"valid ELOG headers={info['valid_headers']}; "
+        f"header-only={info['header_only_sectors']}; "
+        f"fully erased={info['erased_sectors']}; "
+        f"invalid/unknown={info['invalid_or_unknown_sectors']}"
+    )
+    print(f"Decoded: {len(rows)} samples, {sessions} data-bearing sessions, {len(problems)} warnings")
+    if not rows and info["valid_headers"]:
+        print("INFO: valid ELOG sector(s) exist but no complete CRC-valid record page is present.")
+    elif not rows and info["erased_sectors"] == info["sectors"]:
+        print("INFO: entire logger partition is erased (all 0xFF); no ELOG metadata was written.")
+    elif not rows and not problems:
+        print("INFO: no samples recovered; investigate image age and logger state.")
     for kind, at, reason in problems[:20]:
         print(f"WARNING: {kind} +0x{at:06x}: {reason}", file=sys.stderr)
     if len(problems) > 20:
