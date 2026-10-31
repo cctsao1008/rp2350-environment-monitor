@@ -5,6 +5,9 @@ on:
     branches:
       - feature/binary-flash-logger
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/usb-ncm-web-phase1
 
 permissions:
   contents: read
