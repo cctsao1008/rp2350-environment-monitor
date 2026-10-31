@@ -1,6 +1,8 @@
 # Browser-based binary log export — experimental, opt-in
 
 **Implementation branch:** `feature/binary-log-web-download` (based on `feature/binary-flash-logger`).
+Host CI: run 41230405750 **PASS** (native HTTPD, codec, Python parser,
+browser script and simulated end-to-end download/race tests).
 
 **Security prerequisite: Cloudflare Access is NOT enabled in the currently connected
 Cloudflare account (Cloudflare API returned `access.api.error.not_enabled`).
@@ -86,6 +88,11 @@ using the already-proven USB Vendor Reset + `picotool save -r` path.
   **12 MiB raw Flash partition image** with missing sectors set to 0xff,
   and checks each Sector Header CRC in the browser. The host parser
   continues to be responsible for per-Page CRC validation.
+- Each download **re-reads status at click time** (the browser tab might
+  have been left open for hours). Before releasing the file, it re-reads
+  all manifest pages and aborts if the sector generations/CRCs or total
+  sector count changed during transfer. This does not freeze actively
+  accumulating pages, but detects ring recycling and sector additions.
 - Downloads do **not** stop the logger or reboot RP2350. While the
   browser is enumerating all 3072 slots, new sectors may be added; the
   browser aborts if the manifest count differs from the initial status.
@@ -112,6 +119,9 @@ Use a concrete filename if PowerShell wildcards are not expanded by Python.
 - [x] Native C export server test for bounded address and generation,
   request lock, HTTP status/list/sector, malformed query
 - [x] Browser JS syntax test in CI
+- [x] Full existing Dashboard HTTPD native syntax check with export ON
+- [x] Browser automation-style Node contract test: synthetic 12 MiB
+      download and second-pass generation-race rejection
 - [ ] ARM Windows build with `ENABLE_BINARY_WEB_EXPORT=ON`
 - [ ] Existing 1 Hz JSON Dashboard regression
 - [ ] Actual localhost USB CDC-NCM browser download
