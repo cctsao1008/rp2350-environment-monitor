@@ -301,6 +301,11 @@ int main(void) {
     printf("HTS221: 'hts dump' dumps defined registers and raw/calibration data\r\n");
     printf("HTS221 AUTO: 5s raw logs, automatic heating disabled\r\n");
 #endif
+#if PROJECT_ENABLE_BINARY_LOGGER
+    bool logger_failure_announced = false;
+    printf("ENVLOG: opt-in binary recorder enabled; Flash partition 4..16 MiB; "
+           "hardware timing NOT yet qualified\r\n");
+#endif
     absolute_time_t next = get_absolute_time();
     while (true) {
         sensor_snapshot_t reading;
@@ -339,6 +344,11 @@ int main(void) {
             // Idle-loop-only, no IRQ/USB callback flash access. May briefly
             // pause XIP/USB during erase/program; target timing test required.
             envlog_logger_poll();
+            if (!envlog_logger_enabled() && !logger_failure_announced) {
+                printf("WARN: ENVLOG disabled after flash/partition failure; "
+                       "sensor capture continues\r\n");
+                logger_failure_announced = true;
+            }
 #endif
 #if PROJECT_ENABLE_USB_WEB_PHASE1
             tud_task();  // exactly one owner of the USB device stack
