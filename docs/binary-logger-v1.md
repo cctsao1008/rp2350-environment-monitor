@@ -213,6 +213,27 @@ re-run the parser on the existing `envlog-before.bin` **without a new
 flash, reset or sensor acquisition experiment**. No hardware root cause
 is claimed until the header classification is known.
 
+## RP2350 target validation — 380 records / continuity PASS (2026-11-01)
+
+Physical USB Vendor Reset / PICOBOOT dump `envlog-after.bin`:
+
+```text
+Flash: 3072 sectors; valid ELOG headers=4; header-only=1; fully erased=3068; invalid/unknown=0
+Decoded: 380 samples, 1 data-bearing sessions, 0 warnings
+PowerShell sequence step: 379 of 379 are exactly +1
+Timestamp delta: min=1000 ms, max=1000 ms, average=1000 ms, 379 intervals
+```
+
+**PASS:** actual NOR Sector Header and 256-byte Data Page write/readback,
+24-byte decoder compatibility, CRC validation, multi-sector progression,
+sequence continuity and stored-millisecond cadence over a 379-second
+sample-to-sample span. **Not proof of zero microsecond sampling jitter:**
+current timestamps originate from the snapshot's millisecond uptime.
+
+Still unverified: partition-wide wraparound, unexpected power-loss recovery,
+retention through a firmware update, and sustained USB NCM/erase latency.
+No Firmware changes were needed for this evidence.
+
 ## Outstanding Issue #1 acceptance items
 
 - [x] issue, versioned record codec, CRC, metadata and host parser
