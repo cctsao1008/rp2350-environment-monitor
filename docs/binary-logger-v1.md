@@ -1,7 +1,6 @@
 # Environment Binary Logger v1 — experimental implementation (Issue #1)
 
-**Status: source committed on `feature/binary-flash-logger`; hardware build, flash endurance,
-sampling jitter, power-loss recovery and actual BOOTSEL export are NOT validated.**
+**Status: Windows ARM cross-compile and image-size guard PASS (user-reported 2026-11-01); actual RP2350 NOR Flash writes, flash endurance, sampling jitter, power-loss recovery and BOOTSEL export are NOT validated.**
 Default: **OFF**. Existing USB CDC-NCM firmware and `main` remain unchanged.
 
 ## Why / scope
@@ -176,7 +175,7 @@ live sensor endpoint. No export API has been added to the web dashboard.
 - [x] issue, versioned record codec, CRC, metadata and host parser
 - [x] opt-in log pipeline + bounded NOR ring + firmware image-size guard
 - [x] source-level C and Python regression tests / CI configuration
-- [ ] **Windows arm-none-eabi-gcc / Pico SDK build verification**
+- [x] **Windows arm-none-eabi-gcc / Pico SDK build verification** (2026-11-01 user log: 140/140; generated image 105192 B < 4 MiB)
 - [ ] **RP2350 on-target erase/program timing and USB NCM stability**
 - [ ] **actual power-cut tests, wraparound and firmware-update preservation**
 - [ ] read-only online local USB streaming export (optional; offline
