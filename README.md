@@ -414,6 +414,7 @@ SGP40; the 1 Hz IMU and magnetometer are deliberately excluded.
 - **Build option `ENABLE_BINARY_FLASH_LOGGER` defaults to OFF**;
   source implementation is **not hardware-qualified**.
 - No binary-log download endpoint is exposed through Cloudflare; first
-  export path is physical BOOTSEL read-only `picotool save -r`.
+  export path is the existing USB Vendor Reset / PICOBOOT read-only
+  `picotool save -r ... -f` (no manual BOOTSEL button).
 
 See [Binary Logger v1 specification, safety gates and tests](docs/binary-logger-v1.md).
