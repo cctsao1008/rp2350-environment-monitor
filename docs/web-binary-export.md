@@ -114,6 +114,30 @@ py .\tools\envlog_parse.py .\environment-log-*.bin --csv .\envlog.csv
 
 Use a concrete filename if PowerShell wildcards are not expanded by Python.
 
+## Windows ARM build — user evidence (2026-11-01)
+
+The user built the experimental web-download branch on Windows 11 with the
+previously configured `build-ncm` and reported:
+
+```text
+[141/141] Linking CXX executable environment_monitor.elf
+-- Logger partition guard PASS: firmware 115176 bytes < 4 MiB
+[PASS] Firmware ELF: D:\my-github\rp2350-environment-monitor\build-ncm\environment_monitor.elf
+```
+
+**PASS: Windows GCC 15.2 / Pico SDK 2.3.1 cross-compile, linking,
+and 4 MiB image boundary guard.** Binary Logger only image was 105192
+bytes in the previous confirmed build; the 9984-byte increase is
+consistent with the Web Export module. The transcript does not print
+the individual CMake feature flags; if needed, verify
+`ENABLE_BINARY_WEB_EXPORT:BOOL=ON` and
+`ENABLE_BINARY_FLASH_LOGGER:BOOL=ON` in
+`build-ncm/CMakeCache.txt`.
+
+**No RP2350 Flash was performed in this test.** Do not flash the
+Web Export-enabled image while the public Cloudflare Tunnel remains
+unauthenticated.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -122,7 +146,7 @@ Use a concrete filename if PowerShell wildcards are not expanded by Python.
 - [x] Full existing Dashboard HTTPD native syntax check with export ON
 - [x] Browser automation-style Node contract test: synthetic 12 MiB
       download and second-pass generation-race rejection
-- [ ] ARM Windows build with `ENABLE_BINARY_WEB_EXPORT=ON`
+- [x] ARM Windows build of experimental web-download branch (141/141, image 115176 B, 4 MiB guard PASS; confirm feature flags in CMakeCache)
 - [ ] Existing 1 Hz JSON Dashboard regression
 - [ ] Actual localhost USB CDC-NCM browser download
 - [ ] Existing public Cloudflare domain with Access enabled and tested
