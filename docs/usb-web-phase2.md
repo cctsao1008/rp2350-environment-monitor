@@ -108,3 +108,21 @@ Phase 2 JSON, Dashboard, five-minute browser trends and clean-checkout
 CMake override are **committed but not rebuilt or target-validated**, by explicit request
 for no further tests. This work must not be described as hardware PASS
 or merged into stable `main` on an unsupported claim.
+
+## 2026-10-31 NCM generated-driver configure correction
+
+First end-to-end Phase 2 configure on Windows stopped at
+`CMakeLists.txt:104` with `Unexpected pinned TinyUSB wNdbOutDivisor
+assignment`. This was a project-side source-text matching error, not
+an RP2350, USB driver, or toolchain failure. In the pinned TinyUSB driver,
+the IN field and OUT field use different whitespace alignment before
+`= 1` (12 versus 11 spaces). The original CMake generator incorrectly
+required the same spacing for both.
+
+The generator now finds exactly one assignment per field independently of
+spaces/tabs, accepts only existing numeric values `1` or `4`, and changes
+`1` to `4` without altering other source text. Any unknown value or
+ambiguous match fails closed. A local isolated `cmake -P` example checked
+both `1/1` and `4/4` cases; **the actual Windows firmware configure,
+compile and target run are still not verified after this correction**.
+No nested TinyUSB submodule or `main` edits were made.
