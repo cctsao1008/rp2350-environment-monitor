@@ -398,3 +398,23 @@ heater's role in condensation recovery. See
 `docs/validation.md` for the remaining ambient cool-down,
 comparison and power-cycle tests. Do not overwrite factory trim
 or force a software offset solely from the heated readings.
+
+## Experimental on-device binary environmental logger
+
+[Issue #1](https://github.com/cctsao1008/rp2350-environment-monitor/issues/1)
+tracks the **opt-in** 24-byte / 1 Hz NOR Flash circular logger.
+The new `feature/binary-flash-logger` branch keeps the original live
+USB NCM JSON / Dashboard, but logs only BME280, TSL2591, LTR390 and
+SGP40; the 1 Hz IMU and magnetometer are deliberately excluded.
+
+- 256-B page: 16-B time/sequence/CRC header + ten 24-B records.
+- 4-KiB sector: 256-B metadata + 15 program pages.
+- Last 12 MiB of board Flash, nominal 5.33 days at 1 Hz.
+- The image-size guard rejects firmware overlapping the log region.
+- **Build option `ENABLE_BINARY_FLASH_LOGGER` defaults to OFF**;
+  source implementation is **not hardware-qualified**.
+- No binary-log download endpoint is exposed through Cloudflare; first
+  export path is the existing USB Vendor Reset / PICOBOOT read-only
+  `picotool save -r ... -f` (no manual BOOTSEL button).
+
+See [Binary Logger v1 specification, safety gates and tests](docs/binary-logger-v1.md).

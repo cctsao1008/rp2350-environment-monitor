@@ -27,6 +27,8 @@ option(ENABLE_SENSE_HAT_V1 "Build optional Raspberry Pi Sense HAT V1 drivers and
 # Experimental branch-only USB composite networking. OFF keeps the
 # original CDC + picotool path, allowing non-invasive A/B testing.
 option(ENABLE_USB_NCM_WEB_PHASE1 "Experimental CDC-NCM + CDC + vendor reset" OFF)
+# Explicitly opt in: this performs persistent writes to the board's NOR Flash.
+option(ENABLE_BINARY_FLASH_LOGGER "EXPERIMENTAL: persistent 24-byte environmental binary history" OFF)
 if(ENABLE_USB_NCM_WEB_PHASE1 AND ENABLE_SENSE_HAT_V1)
     message(FATAL_ERROR "Experimental USB-NCM mode currently supports Environment HAT only")
 endif()
@@ -48,6 +50,14 @@ add_executable(environment_monitor
     third_party/bosch_bme280/bme280.c
     third_party/sensirion_gas_index/sensirion_gas_index_algorithm.c
 )
+
+if(ENABLE_BINARY_FLASH_LOGGER)
+    target_sources(environment_monitor PRIVATE
+        src/logger/envlog_codec.c
+        src/logger/envlog_logger.c
+    )
+    target_link_libraries(environment_monitor PRIVATE pico_flash hardware_flash)
+endif()
 
 if(ENABLE_SENSE_HAT_V1)
     target_sources(environment_monitor PRIVATE
@@ -187,6 +197,7 @@ target_compile_definitions(environment_monitor PRIVATE
     BME280_DOUBLE_ENABLE=1
     PROJECT_ENABLE_USB_WEB_PHASE1=$<BOOL:${ENABLE_USB_NCM_WEB_PHASE1}>
     PROJECT_ENABLE_SENSE_HAT_V1=$<BOOL:${ENABLE_SENSE_HAT_V1}>
+    PROJECT_ENABLE_BINARY_LOGGER=$<BOOL:${ENABLE_BINARY_FLASH_LOGGER}>
 )
 
 if(ENABLE_USB_NCM_WEB_PHASE1)
@@ -200,3 +211,23 @@ pico_enable_stdio_uart(environment_monitor 0)
 # ELF is the canonical flashing image. Other generated formats are NOT
 # used by the firmware-update procedure.
 pico_add_extra_outputs(environment_monitor)
+
+# HARD SAFETY BOUNDARY: the logger starts at flash byte 0x400000.
+# A successful firmware link alone is insufficient because the board linker
+# may otherwise use all 16 MiB. Reject any ELF whose loadable binary spans
+# into the logger partition. Do not enable logging without this check.
+if(ENABLE_BINARY_FLASH_LOGGER)
+    if(NOT CMAKE_OBJCOPY)
+        message(FATAL_ERROR "objcopy unavailable; cannot enforce logger partition boundary")
+    endif()
+    add_custom_command(TARGET environment_monitor POST_BUILD
+        COMMAND "${CMAKE_OBJCOPY}" -O binary "$<TARGET_FILE:environment_monitor>"
+            "${CMAKE_CURRENT_BINARY_DIR}/envlog_image_guard.bin"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DIMAGE=${CMAKE_CURRENT_BINARY_DIR}/envlog_image_guard.bin"
+            "-DMAX_BYTES=4194304"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/check_logger_image_size.cmake"
+        COMMENT "Checking firmware image cannot touch 4-16 MiB logger partition"
+        VERBATIM
+    )
+endif()
