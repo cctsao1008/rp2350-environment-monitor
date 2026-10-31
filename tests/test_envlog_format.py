@@ -54,6 +54,31 @@ class FormatTests(unittest.TestCase):
         self.assertIsNotNone(log.sector_header(sector_header()))
         self.assertIsNone(log.sector_header(sector_header()[:252] + b"\0\0\0\0"))
 
+    def test_flash_inspection_erased_vs_header_only(self):
+        erased = b"\xff" * 4096
+        info = log.inspect_headers(erased)
+        self.assertEqual(info["erased_sectors"], 1)
+        self.assertEqual(info["valid_headers"], 0)
+        self.assertEqual(info["header_only_sectors"], 0)
+        self.assertEqual(log.scan(erased), ([], []))
+
+        header_only = bytearray(erased)
+        header_only[:256] = sector_header()
+        info = log.inspect_headers(header_only)
+        self.assertEqual(info["valid_headers"], 1)
+        self.assertEqual(info["header_only_sectors"], 1)
+        self.assertEqual(log.scan(bytes(header_only)), ([], []))
+
+    def test_non_erased_without_header_is_reported(self):
+        damaged = bytearray(b"\xff" * 4096)
+        damaged[300] = 0
+        info = log.inspect_headers(damaged)
+        self.assertEqual(info["valid_headers"], 0)
+        self.assertEqual(info["invalid_or_unknown_sectors"], 1)
+        rows, issues = log.scan(bytes(damaged))
+        self.assertEqual(rows, [])
+        self.assertEqual(issues[0][2], "non_erased_without_valid_header")
+
     def test_single_page_roundtrip(self):
         meta = log.sector_header(sector_header())
         rows, error = log.page_rows(page(), meta)
