@@ -129,7 +129,9 @@ static bool json_list(struct fs_file *file,uint32_t start) {
     if(start>=ENVLOG_SECTOR_COUNT || start%LOG_LIST_STRIDE!=0) return false;
     // A physical-slot manifest is intentionally stable and paginated:
     // the browser builds the old exact 12 MiB raw partition dump.
-    char body[3000];
+    // Avoid a 3 KiB stack frame: Pico SDK's default main stack is small.
+    // This static buffer is safe because all log responses are serialized.
+    static char body[3000];
     size_t used=0;
     int n=snprintf(body,sizeof(body),
         "{\"schema\":\"rp2350.envlog.list.v1\",\"start\":%lu,\"entries\":[",
