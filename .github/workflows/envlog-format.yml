@@ -1,0 +1,22 @@
+name: Environment Binary Logger format
+
+on:
+  push:
+    branches:
+      - feature/binary-flash-logger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-codec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build codec without RP2350 SDK
+        run: cc -std=c11 -Wall -Wextra -Werror -Isrc/logger src/logger/envlog_codec.c tests/envlog_codec_test.c -o /tmp/envlog_codec_test
+      - name: Verify C record/page/sector encoding
+        run: /tmp/envlog_codec_test
+      - name: Verify Python parser and synthetic power-loss recovery
+        run: python3 -m unittest discover -s tests -p 'test_envlog_format.py' -v
