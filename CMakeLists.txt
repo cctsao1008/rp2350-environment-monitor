@@ -29,6 +29,12 @@ option(ENABLE_SENSE_HAT_V1 "Build optional Raspberry Pi Sense HAT V1 drivers and
 option(ENABLE_USB_NCM_WEB_PHASE1 "Experimental CDC-NCM + CDC + vendor reset" OFF)
 # Explicitly opt in: this performs persistent writes to the board's NOR Flash.
 option(ENABLE_BINARY_FLASH_LOGGER "EXPERIMENTAL: persistent 24-byte environmental binary history" OFF)
+# Security: this becomes publicly reachable via Cloudflare Tunnel unless edge Access
+# protects /logs.html and /api/v1/log/*. Never enable on a public tunnel without Access.
+option(ENABLE_BINARY_WEB_EXPORT "EXPERIMENTAL: web binary-log download; requires Cloudflare Access protection" OFF)
+if(ENABLE_BINARY_WEB_EXPORT AND (NOT ENABLE_BINARY_FLASH_LOGGER OR NOT ENABLE_USB_NCM_WEB_PHASE1))
+    message(FATAL_ERROR "Binary Web Export requires ENABLE_BINARY_FLASH_LOGGER=ON and ENABLE_USB_NCM_WEB_PHASE1=ON")
+endif()
 if(ENABLE_USB_NCM_WEB_PHASE1 AND ENABLE_SENSE_HAT_V1)
     message(FATAL_ERROR "Experimental USB-NCM mode currently supports Environment HAT only")
 endif()
@@ -153,6 +159,10 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
     )
+    if(ENABLE_BINARY_WEB_EXPORT)
+        target_sources(environment_monitor PRIVATE src/usb_composite/log_web.c)
+        target_include_directories(environment_monitor PRIVATE src/logger)
+    endif()
     target_include_directories(environment_monitor PRIVATE
         src/usb_composite
         # Generated NCM source is outside the vendor directory; retain its
@@ -198,6 +208,7 @@ target_compile_definitions(environment_monitor PRIVATE
     PROJECT_ENABLE_USB_WEB_PHASE1=$<BOOL:${ENABLE_USB_NCM_WEB_PHASE1}>
     PROJECT_ENABLE_SENSE_HAT_V1=$<BOOL:${ENABLE_SENSE_HAT_V1}>
     PROJECT_ENABLE_BINARY_LOGGER=$<BOOL:${ENABLE_BINARY_FLASH_LOGGER}>
+    PROJECT_ENABLE_BINARY_WEB_EXPORT=$<BOOL:${ENABLE_BINARY_WEB_EXPORT}>
 )
 
 if(ENABLE_USB_NCM_WEB_PHASE1)

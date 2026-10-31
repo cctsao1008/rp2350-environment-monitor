@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feature/binary-flash-logger
+      - feature/binary-log-web-download
   workflow_dispatch:
   pull_request:
     branches:
       - feature/usb-ncm-web-phase1
+      - feature/binary-flash-logger
 
 permissions:
   contents: read
@@ -23,3 +25,29 @@ jobs:
         run: /tmp/envlog_codec_test
       - name: Verify Python parser and synthetic power-loss recovery
         run: python3 -m unittest discover -s tests -p 'test_envlog_format.py' -v
+      - name: Compile and run native C HTTPD web-export tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Itests/web_export_stubs -Isrc/logger -Isrc/usb_composite \
+            src/logger/envlog_codec.c src/usb_composite/log_web.c \
+            tests/web_export_test.c -o /tmp/envlog_web_test
+          /tmp/envlog_web_test
+      - name: Compile existing Dashboard HTTPD translation unit with Web Export enabled
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+            -DPROJECT_ENABLE_BINARY_WEB_EXPORT=1 \
+            -Itests/web_export_stubs -Isrc -Isrc/usb_composite \
+            src/usb_composite/sensor_web.c
+      - name: Verify embedded browser JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import ast,re,pathlib
+          h=pathlib.Path('src/usb_composite/log_web_page.h').read_text()
+          pieces=re.findall(r'^"(?:\\.|[^"\\])*"$',h,re.M)
+          page=''.join(ast.literal_eval(p) for p in pieces)
+          assert '/api/v1/log/list' in page and '</script>' in page
+          script=page.split('<script>',1)[1].split('</script>',1)[0]
+          pathlib.Path('/tmp/envlog_web.js').write_text(script)
+          PY
+          node --check /tmp/envlog_web.js
+          node tests/test_web_download.mjs /tmp/envlog_web.js
