@@ -63,7 +63,7 @@ sample or on allocation/encoding failure.
 | `schema` | String `rp2350.environment.v1` |
 | `sequence`, `uptime_ms` | Sensor Manager count / milliseconds since boot |
 | `bme280` | `ok`, temperature 0.01 °C, RH 0.01%, pressure in Pa |
-| `tsl2591` | `ok`, saturation, raw counts, estimated `lux_centi` when valid |
+| `tsl2591` | `ok`, saturation, raw counts, temporarily LTR390-aligned `lux_centi` when valid |
 | `ltr390` | `ok`, UV/ALS raw counts, estimated `uvi_centi` and `lux_centi` |
 | `sgp40` | `ok`, `sraw_voc`, `index_ready`, `voc_index` after warmup only |
 | `icm20948` | `ok`, `accel_mg[3]` (0.001g), `gyro_mdps[3]` (0.001°/s) |
@@ -126,3 +126,40 @@ ambiguous match fails closed. A local isolated `cmake -P` example checked
 both `1/1` and `4/4` cases; **the actual Windows firmware configure,
 compile and target run are still not verified after this correction**.
 No nested TinyUSB submodule or `main` edits were made.
+
+
+## 2026-10-31 temporary TSL2591 / LTR390 relative lux alignment
+
+**Scope:** experimental `feature/usb-ncm-web-phase1` firmware only; no change to
+the stable `main` branch or the sensor hardware registers.
+
+The room LED measurements repeatedly showed LTR390 lux approximately 2.69–2.71
+times the TSL2591 lux, with both sensors responding consistently to light
+changes. For a **temporary common display scale**, the TSL2591's reported
+`lux_centi` is multiplied by `2.70`, using LTR390 as the provisional
+reference. This is a fixed per-driver multiplier, **not** dynamic per-sample
+matching, factory calibration, or proof that either absolute lux value is
+accurate. Agreement can differ with light source, color temperature, angle,
+and attenuation.
+
+- TSL2591 keeps its original Adafruit/Environment Sensor HAT ratio algorithm
+  and device factor 408. The extra `TSL2591_RELATIVE_LUX_SCALE` is applied
+  **only after** calculating its estimated lux.
+- Raw TSL2591 `full_count` and `ir_count` and raw LTR390 `als_counts`
+  remain unchanged in the JSON API. They are the basis for later calibration.
+- LTR390 `lux_centi`, UV counts, and UVI remain unchanged.
+- The `rp2350.environment.v1` JSON structure and numeric units do not change;
+  consumers must now interpret TSL2591's `lux_centi` as **relative-aligned**,
+  not factory-calibrated. The Dashboard explicitly labels it.
+- Historical API samples from firmware before this change used *unscaled*
+  TSL2591 lux; do not compare the two epochs without accounting for 2.70.
+
+Example using the previously recorded pair:
+`TSL2591 215.00 lx * 2.70 = 580.50 lx` versus
+`LTR390 581.80 lx` (difference 1.30 lx, about 0.22%).
+These are **offline calculations**, not a post-flash hardware test.
+
+**Validation boundary:** source committed only. Rebuild and flash the
+experimental NCM firmware to activate the change. Later, use an independent
+reference lux meter and controlled lighting to calibrate **both** sensors;
+remove or replace the temporary scale at that point.
