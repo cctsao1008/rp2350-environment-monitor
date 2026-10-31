@@ -70,7 +70,7 @@ static const char dashboard_response[] =
     " <article><h2>BME280 &middot; Environment</h2><div class=\"quality\" id=\"bme-status\">Waiting</div>\n"
     " <div class=\"value\" id=\"bme\">--</div><div class=\"secondary\">Temperature / RH / pressure</div></article>\n"
     " <article><h2>TSL2591 &middot; Light</h2><div class=\"quality\" id=\"tsl-status\">Waiting</div>\n"
-    " <div class=\"value\" id=\"tsl\">--</div><div class=\"secondary\">Estimated lux; saturation is invalid</div></article>\n"
+    " <div class=\"value\" id=\"tsl\">--</div><div class=\"secondary\">Relative lux (TSL x2.70 aligned to LTR390); not calibrated</div></article>\n"
     " <article><h2>LTR390 &middot; UV / ALS</h2><div class=\"quality\" id=\"ltr-status\">Waiting</div>\n"
     " <div class=\"value\" id=\"ltr\">--</div><div class=\"secondary\">Estimated UV index and ambient lux</div></article>\n"
     " <article><h2>SGP40 &middot; VOC</h2><div class=\"quality\" id=\"sgp-status\">Waiting</div>\n"
