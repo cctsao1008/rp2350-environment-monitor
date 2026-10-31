@@ -50,3 +50,4 @@ jobs:
           pathlib.Path('/tmp/envlog_web.js').write_text(script)
           PY
           node --check /tmp/envlog_web.js
+          node tests/test_web_download.mjs /tmp/envlog_web.js
