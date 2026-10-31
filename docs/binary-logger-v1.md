@@ -1,6 +1,6 @@
 # Environment Binary Logger v1 — experimental implementation (Issue #1)
 
-**Status: Windows ARM cross-compile and image-size guard PASS (user-reported 2026-11-01); actual RP2350 NOR Flash writes, flash endurance, sampling jitter, power-loss recovery and BOOTSEL export are NOT validated.**
+**Status: Windows ARM cross-compile and image-size guard PASS (user-reported 2026-11-01); actual RP2350 NOR Flash writes, flash endurance, sampling jitter, power-loss recovery and USB Vendor Reset export are NOT validated.**
 Default: **OFF**. Existing USB CDC-NCM firmware and `main` remain unchanged.
 
 ## Why / scope
@@ -151,24 +151,44 @@ Flash partition layout, and safely controlled on-target plan are reviewed.
 To restore the prior build, configure
 `-DENABLE_BINARY_FLASH_LOGGER=OFF` and rebuild.
 
-## Local-only export (offline BOOTSEL, not remote HTTP)
+## Local-only export (existing USB Vendor Reset, not remote HTTP)
 
-Use a physically connected RP2350 in BOOTSEL mode and `picotool 2.3.1`.
-A read-only flash-range save does not install any persistent network
-download endpoint:
+**No physical BOOTSEL button is required** when the current firmware
+exposes the already-proven USB Vendor Reset interface. Use the same USB
+automatic reset mechanism as `scripts/flash.ps1 -Ncm`. `picotool -f`
+requests a temporary reboot into the RP2350 Boot ROM's USB PICOBOOT
+protocol, reads the selected Flash range, and normally reboots the
+device back to the application. No MSC file drag-and-drop is used.
+
+On Windows with the connected NCM image (VID:PID `CAFE:40A3`):
 
 ```powershell
-picotool save -r 0x10400000 0x11000000 envlog.bin -t bin
-py tools\envlog_parse.py envlog.bin --csv envlog.csv
+$Picotool = "C:\Toolchains\pico-tools\2.3.1\picotool\picotool\picotool.exe"
+& $Picotool save -r 0x10400000 0x11000000 `
+    envlog-before.bin -t bin --vid 51966 --pid 16547 -f
 ```
 
-Confirm `envlog.bin` is exactly 12 MiB; the parser checks size, magic,
-version, sector/page CRC, sequence and time reconstruction, and emits
-CSV with invalid readings blanked. BOOTSEL pauses logging while downloading
-and may require an explicit reboot afterward.
+This is a **read-only** dump of the 12 MiB logger partition. The
+`-f` path automatically enters and leaves PICOBOOT and is expected to
+cause a temporary interruption of USB NCM / HTTP service. Do not
+mistake that intentional interruption for a system fault. If there are
+multiple matching boards, also specify `--ser` with the actual device
+serial. `picotool save -r` requires physical USB access and is not
+exposed through the current Cloudflare Tunnel.
 
-Cloudflare Tunnel continues to expose **only** the existing read-only
-live sensor endpoint. No export API has been added to the web dashboard.
+```powershell
+py tools\envlog_parse.py envlog-before.bin --csv envlog.csv
+```
+
+Confirm the dump is exactly 12 MiB. When the logger has not yet been
+flashed/enabled, the image is only a preflight backup and will not
+contain valid ELOG records. This workflow is source/documentation
+verified; the USB `picotool save -r -f` operation has **not yet been
+reported as tested on the device**. Retain the existing validated
+`scripts/flash.ps1 -BuildDir build-ncm -Ncm` for firmware updates.
+
+Cloudflare Tunnel continues to expose only the existing live sensor
+endpoint. No remote binary export API has been added.
 
 ## Outstanding Issue #1 acceptance items
 
@@ -178,5 +198,4 @@ live sensor endpoint. No export API has been added to the web dashboard.
 - [x] **Windows arm-none-eabi-gcc / Pico SDK build verification** (2026-11-01 user log: 140/140; generated image 105192 B < 4 MiB)
 - [ ] **RP2350 on-target erase/program timing and USB NCM stability**
 - [ ] **actual power-cut tests, wraparound and firmware-update preservation**
-- [ ] read-only online local USB streaming export (optional; offline
-      picotool range export is the initial physical-local solution)
+- [ ] read-only online local USB streaming export (optional; USB Vendor Reset `picotool save -r -f` export is the initial physical-local solution)
