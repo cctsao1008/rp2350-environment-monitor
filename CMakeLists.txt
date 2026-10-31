@@ -93,16 +93,28 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
     endif()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${_tinyusb_ncm_original}")
+    # Match the assignment, not its indentation/alignment: TinyUSB uses
+    # 12 spaces before InDivisor '=' but 11 spaces before OutDivisor '='.
+    # Only the uniquely matched numeric value may change; any other
+    # upstream definition fails closed instead of being silently modified.
     foreach(_field IN ITEMS wNdbInDivisor wNdbOutDivisor)
-        set(_from "  .${_field}            = 1,")
-        set(_to "  .${_field}            = 4,")
-        string(FIND "${_ncm_source}" "${_from}" _old_at)
-        string(FIND "${_ncm_source}" "${_to}" _new_at)
-        if(_old_at GREATER_EQUAL 0 AND _new_at EQUAL -1)
-            string(REPLACE "${_from}" "${_to}" _ncm_source "${_ncm_source}")
-        elseif(NOT (_old_at EQUAL -1 AND _new_at GREATER_EQUAL 0))
+        string(REGEX MATCHALL
+            "\\\\.${_field}[ \\t]*=[ \\t]*[0-9]+[ \\t]*,"
+            _assignments "${_ncm_source}")
+        list(LENGTH _assignments _assignment_count)
+        if(NOT _assignment_count EQUAL 1)
             message(FATAL_ERROR
-                "Unexpected pinned TinyUSB ${_field} assignment; inspect driver before building")
+                "Expected exactly one pinned TinyUSB ${_field} assignment, got ${_assignment_count}")
+        endif()
+        list(GET _assignments 0 _assignment)
+        if(_assignment MATCHES "=[ \\t]*1[ \\t]*,$")
+            string(REGEX REPLACE "1([ \\t]*,)$" "4\\\\1"
+                _corrected "${_assignment}")
+            string(REPLACE "${_assignment}" "${_corrected}"
+                _ncm_source "${_ncm_source}")
+        elseif(NOT _assignment MATCHES "=[ \\t]*4[ \\t]*,$")
+            message(FATAL_ERROR
+                "Unexpected pinned TinyUSB ${_field} value in: ${_assignment}")
         endif()
     endforeach()
     set(_ncm_override "${CMAKE_CURRENT_BINARY_DIR}/generated/tinyusb_ncm_device.c")
