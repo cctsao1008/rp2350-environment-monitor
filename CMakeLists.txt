@@ -99,7 +99,7 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
     # upstream definition fails closed instead of being silently modified.
     foreach(_field IN ITEMS wNdbInDivisor wNdbOutDivisor)
         string(REGEX MATCHALL
-            "\\\\.${_field}[ \\t]*=[ \\t]*[0-9]+[ \\t]*,"
+            "\\.${_field}[ \t]*=[ \t]*[0-9]+[ \t]*,"
             _assignments "${_ncm_source}")
         list(LENGTH _assignments _assignment_count)
         if(NOT _assignment_count EQUAL 1)
@@ -107,12 +107,12 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
                 "Expected exactly one pinned TinyUSB ${_field} assignment, got ${_assignment_count}")
         endif()
         list(GET _assignments 0 _assignment)
-        if(_assignment MATCHES "=[ \\t]*1[ \\t]*,$")
-            string(REGEX REPLACE "1([ \\t]*,)$" "4\\\\1"
+        if(_assignment MATCHES "=[ \t]*1[ \t]*,$")
+            string(REGEX REPLACE "1([ \t]*,)$" "4\\1"
                 _corrected "${_assignment}")
             string(REPLACE "${_assignment}" "${_corrected}"
                 _ncm_source "${_ncm_source}")
-        elseif(NOT _assignment MATCHES "=[ \\t]*4[ \\t]*,$")
+        elseif(NOT _assignment MATCHES "=[ \t]*4[ \t]*,$")
             message(FATAL_ERROR
                 "Unexpected pinned TinyUSB ${_field} value in: ${_assignment}")
         endif()
