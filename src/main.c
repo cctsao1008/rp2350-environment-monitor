@@ -6,6 +6,9 @@
 #include "pico/stdlib.h"
 #include "sensor_manager.h"
 #include "project_config.h"
+#if PROJECT_ENABLE_BINARY_LOGGER
+#include "logger/envlog_logger.h"
+#endif
 #if PROJECT_ENABLE_USB_WEB_PHASE1
 #include "tusb.h"
 #include "usb_ncm_network.h"
@@ -264,6 +267,11 @@ int main(void) {
 
     sensor_presence_t present = {0};
     sensor_manager_init(SENSOR_BUS, &present);
+#if PROJECT_ENABLE_BINARY_LOGGER
+    // Metadata scan only: no flash modification in init. Runtime writes are
+    // opt-in at CMake configure time and restricted to the 4..16 MiB partition.
+    envlog_logger_init();
+#endif
 #if PROJECT_ENABLE_SENSE_HAT_V1
     // Preserve optional HTS221 diagnostics only in Sense HAT builds.
     sense_hts221_recovery_init();
@@ -297,6 +305,10 @@ int main(void) {
     while (true) {
         sensor_snapshot_t reading;
         sensor_manager_sample(&reading);
+#if PROJECT_ENABLE_BINARY_LOGGER
+        // Encode existing completed samples, never issue additional I2C reads.
+        envlog_logger_append(&reading);
+#endif
 #if PROJECT_ENABLE_USB_WEB_PHASE1
         // Publish one finished 1Hz reading; HTTP reads only this snapshot.
         sensor_web_publish_snapshot(&reading);
@@ -322,6 +334,11 @@ int main(void) {
             sense_hat_console_poll();
             sense_hts221_recovery_poll();
             sense_hat_marquee_poll();
+#endif
+#if PROJECT_ENABLE_BINARY_LOGGER
+            // Idle-loop-only, no IRQ/USB callback flash access. May briefly
+            // pause XIP/USB during erase/program; target timing test required.
+            envlog_logger_poll();
 #endif
 #if PROJECT_ENABLE_USB_WEB_PHASE1
             tud_task();  // exactly one owner of the USB device stack
