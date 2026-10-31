@@ -190,6 +190,29 @@ reported as tested on the device**. Retain the existing validated
 Cloudflare Tunnel continues to expose only the existing live sensor
 endpoint. No remote binary export API has been added.
 
+## First target dump: zero records (2026-11-01)
+
+The first 12 MiB Vendor Reset dump, captured immediately following the
+experimental ELF Flash/verify, was decoded as:
+
+```text
+Decoded: 0 samples, 0 sessions, 0 warnings
+```
+
+This does **not** by itself mean the logger failed to write: the original
+decoder counted sessions only among recovered records. The Logger writes
+a Sector Header immediately on its first successful idle-loop Flash
+operation, but waits for **ten 1 Hz measurements** before writing the
+first CRC-protected data page. The first dump might thus contain an
+ELOG sector with an erased first page.
+
+Updated `tools/envlog_parse.py` reports **valid ELOG header count,
+header-only sectors, completely erased sectors, unknown/non-erased
+sectors** independently of recovered data. This update is host-only:
+re-run the parser on the existing `envlog-before.bin` **without a new
+flash, reset or sensor acquisition experiment**. No hardware root cause
+is claimed until the header classification is known.
+
 ## Outstanding Issue #1 acceptance items
 
 - [x] issue, versioned record codec, CRC, metadata and host parser
