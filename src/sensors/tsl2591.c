@@ -9,6 +9,13 @@
 #define TSL_ID 0x12u
 #define TSL_CH0 0x14u
 #define TSL_CH1 0x16u
+
+// TEMPORARY relative alignment with LTR390 ALS under the current room LED.
+// The 2.70 factor is empirical (TSL ~215 lx, LTR ~582 lx); it is NOT an
+// absolute lux calibration or a guarantee of agreement under other spectra.
+// Keep the original DF=408 algorithm and raw CH0/CH1 for future calibration.
+#define TSL2591_RELATIVE_LUX_SCALE 2.70f
+
 static i2c_inst_t *tsl_bus;
 
 bool tsl2591_init(i2c_inst_t *bus) {
@@ -47,6 +54,7 @@ bool tsl2591_read(tsl2591_sample_t *s) {
     float lux = ((float)s->full_count - (float)s->ir_count) *
                 (1.0f - ir_ratio) / cpl;
     if (lux < 0.0f) lux = 0.0f;
-    s->lux_centi = (uint32_t)(lux * 100.0f + 0.5f);
+    // Only the reported lux is aligned; sensor ADC readings remain unchanged.
+    s->lux_centi = (uint32_t)(lux * TSL2591_RELATIVE_LUX_SCALE * 100.0f + 0.5f);
     return true;
 }
