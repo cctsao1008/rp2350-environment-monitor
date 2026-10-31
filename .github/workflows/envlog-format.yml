@@ -32,6 +32,12 @@ jobs:
             src/logger/envlog_codec.c src/usb_composite/log_web.c \
             tests/web_export_test.c -o /tmp/envlog_web_test
           /tmp/envlog_web_test
+      - name: Compile existing Dashboard HTTPD translation unit with Web Export enabled
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+            -DPROJECT_ENABLE_BINARY_WEB_EXPORT=1 \
+            -Itests/web_export_stubs -Isrc -Isrc/usb_composite \
+            src/usb_composite/sensor_web.c
       - name: Verify embedded browser JavaScript syntax
         run: |
           python3 - <<'PY'
