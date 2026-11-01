@@ -50,32 +50,52 @@ static bool route(const char *path, const char *target) {
     size_t n=strlen(target);
     return strncmp(path,target,n)==0 && (path[n]=='?' || path[n]==0);
 }
-static bool parameter(const char *url,const char *key,uint32_t *value) {
-    const char *p=strchr(url,'?');
-    if (!p) return false;
-    const size_t key_len=strlen(key);
-    bool found=false;
-    ++p;
-    while (*p) {
-        const char *end=strchr(p,'&');
-        if (!end) end=p+strlen(p);
-        if ((size_t)(end-p)>key_len+1u &&
-            memcmp(p,key,key_len)==0 && p[key_len]=='=') {
-            if (found) return false;
-            found=true;
-            uint32_t v=0;
-            for (const char *d=p+key_len+1u;d<end;++d) {
-                if (*d<'0'||*d>'9') return false;
-                const uint32_t digit=(uint32_t)(*d-'0');
-                if (v>(UINT32_MAX-digit)/10u) return false;
-                v=v*10u+digit;
-            }
-            *value=v;
-        }
-        if (!*end) break;
-        p=end+1;
+/*
+ * lwIP's http_find_file() replaces '?' with '\\0' BEFORE calling fs_open()
+ * and fs_open_custom(), even with LWIP_HTTPD_CGI=0. Thus the custom file
+ * callback cannot see query parameters. Route parameters are encoded as
+ * decimal path segments instead, within a fixed 3072-sector address space.
+ *
+ * Strict parser: no signs, no empty segments, no overflow, no extra fields.
+ */
+static bool route_family(const char *url, const char *base) {
+    const size_t n = strlen(base);
+    return strncmp(url,base,n)==0 && (url[n]=='/' || url[n]=='\\0');
+}
+static bool decimal_segment(const char **cursor,uint32_t *out,bool last) {
+    const char *p=*cursor;
+    if (*p<'0' || *p>'9') return false;
+    uint32_t v=0;
+    do {
+        const uint32_t digit=(uint32_t)(*p-'0');
+        if (v>(UINT32_MAX-digit)/10u) return false;
+        v=v*10u+digit;
+        ++p;
+    } while (*p>='0' && *p<='9');
+    if (last) {
+        if (*p!='\\0') return false;
+    } else {
+        if (*p!='/') return false;
+        ++p;
     }
-    return found;
+    *out=v;
+    *cursor=p;
+    return true;
+}
+static bool list_slot(const char *url,uint32_t *start) {
+    const char prefix[]="/api/v1/log/list/";
+    if (strncmp(url,prefix,sizeof(prefix)-1u)!=0) return false;
+    const char *p=url+sizeof(prefix)-1u;
+    return decimal_segment(&p,start,true);
+}
+static bool sector_identity(const char *url,uint32_t *slot,
+                            uint32_t *generation,uint32_t *crc) {
+    const char prefix[]="/api/v1/log/sector/";
+    if (strncmp(url,prefix,sizeof(prefix)-1u)!=0) return false;
+    const char *p=url+sizeof(prefix)-1u;
+    return decimal_segment(&p,slot,false) &&
+           decimal_segment(&p,generation,false) &&
+           decimal_segment(&p,crc,true);
 }
 static const uint8_t *sector_at(uint32_t slot) {
     return (const uint8_t *)(uintptr_t)(
@@ -184,8 +204,8 @@ int log_web_open(struct fs_file *file,const char *name) {
         return 1;
     }
     bool status=route(name,"/api/v1/log/status");
-    bool list=route(name,"/api/v1/log/list");
-    bool sector=route(name,"/api/v1/log/sector");
+    bool list=route_family(name,"/api/v1/log/list");
+    bool sector=route_family(name,"/api/v1/log/sector");
     if(!status&&!list&&!sector)return 0;
     if(busy){
         literal(file,unavailable,sizeof(unavailable)-1u);
@@ -197,14 +217,12 @@ int log_web_open(struct fs_file *file,const char *name) {
     }
     if(list){
         uint32_t start=0;
-        if(!parameter(name,"start",&start) || !json_list(file,start))
+        if(!list_slot(name,&start) || !json_list(file,start))
             literal(file,bad_request,sizeof(bad_request)-1u);
         return 1;
     }
     uint32_t slot=0,generation=0,crc=0;
-    if(!parameter(name,"slot",&slot)||
-       !parameter(name,"gen",&generation)||
-       !parameter(name,"crc",&crc)||
+    if(!sector_identity(name,&slot,&generation,&crc) ||
        slot>=ENVLOG_SECTOR_COUNT){
         literal(file,bad_request,sizeof(bad_request)-1u);
     }else if(!binary_sector(file,slot,generation,crc)){
