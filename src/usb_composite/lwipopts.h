@@ -11,6 +11,24 @@
 #define LWIP_DHCP 0
 #define LWIP_ICMP 1
 #define LWIP_UDP 1
+#if PROJECT_ENABLE_SNTP_TIME
+/* RP2350 runs its own RFC4330 SNTPv4 client over USB-NCM L3 routing. */
+#include <stdint.h>
+void rp2350_sntp_apply(uint32_t sec, uint32_t usec);
+void rp2350_sntp_request_nonce(int32_t *sec, uint32_t *frac);
+#define LWIP_DNS 1
+#define DNS_TABLE_SIZE 4
+#define SNTP_SERVER_DNS 1
+#define SNTP_MAX_SERVERS 1
+#define SNTP_CHECK_RESPONSE 2
+#define SNTP_COMP_ROUNDTRIP 0
+#define SNTP_UPDATE_DELAY 3600000
+#define SNTP_RECV_TIMEOUT 15000
+#define SNTP_GET_SYSTEM_TIME_NTP(sec, frac) rp2350_sntp_request_nonce(&(sec), &(frac))
+#define SNTP_SET_SYSTEM_TIME_US(sec, usec) rp2350_sntp_apply((uint32_t)(sec),(uint32_t)(usec))
+/* Include additional SNTP and DNS timer entries. Bounded static pools. */
+#define MEMP_NUM_SYS_TIMEOUT 16
+#endif
 #define LWIP_TCP 1
 #define LWIP_IPV4 1
 #define LWIP_IPV6 0
