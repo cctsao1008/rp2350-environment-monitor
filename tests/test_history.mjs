@@ -49,7 +49,7 @@ async function scenario(kind){
  };
  for(const id of [
   'load','session','metric','progress','message','samples','sectors',
-  'sessions','warnings','plot','session-rows','chart-info'
+  'sessions','warnings','plot','session-rows','chart-info','time-note'
  ]){
   const node={
    id,disabled:id==='session'||id==='metric',textContent:'',
