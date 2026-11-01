@@ -32,6 +32,18 @@ jobs:
             src/logger/envlog_codec.c src/usb_composite/log_web.c \
             tests/web_export_test.c -o /tmp/envlog_web_test
           /tmp/envlog_web_test
+      - name: Verify Cloudflare Access HTTP request bounds for enabled/disabled builds
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -DPROJECT_ENABLE_BINARY_WEB_EXPORT=1 \
+            -Isrc/usb_composite \
+            tests/httpd_request_limits_test.c -o /tmp/httpd_limits_on
+          /tmp/httpd_limits_on
+          cc -std=c11 -Wall -Wextra -Werror \
+            -DPROJECT_ENABLE_BINARY_WEB_EXPORT=0 \
+            -Isrc/usb_composite \
+            tests/httpd_request_limits_test.c -o /tmp/httpd_limits_off
+          /tmp/httpd_limits_off
       - name: Compile existing Dashboard HTTPD translation unit with Web Export enabled
         run: |
           cc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
