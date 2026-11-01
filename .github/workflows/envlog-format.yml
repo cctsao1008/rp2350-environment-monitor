@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
+      - main
       - feature/usb-ncm-web-phase1
       - feature/binary-flash-logger
       - feature/binary-log-web-download
@@ -55,6 +56,8 @@ jobs:
             -DPROJECT_ENABLE_BINARY_WEB_EXPORT=1 \
             -Itests/web_export_stubs -Isrc -Isrc/usb_composite \
             src/usb_composite/sensor_web.c
+      - name: Verify live Dashboard continuous trends
+        run: node tests/test_live_trends.mjs
       - name: Verify embedded browser JavaScript syntax
         run: |
           python3 - <<'PY'
