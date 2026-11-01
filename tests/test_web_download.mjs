@@ -37,15 +37,17 @@ async function scenario(mutate) {
         sectorBytes:4096,sectorCount:SLOTS,manifestPage:64,
         validSectors:1,unknownHeaders:0,version:1})};
     }
-    if(url.startsWith('/api/v1/log/list?start=')){
+    if(url.startsWith('/api/v1/log/list/')){
       manifestCalls++;
-      const start=Number(url.split('=')[1]);
+      const start=Number(url.slice('/api/v1/log/list/'.length));
+      assert.equal(url,'/api/v1/log/list/'+start);
       const mutated=mutate&&manifestCalls>48;
       return {ok:true,status:200,json:async()=>({
         schema:'rp2350.envlog.list.v1',start,
         entries:start===0?[[0,mutated?2:1,crc]]:[]})};
     }
-    if(url.startsWith('/api/v1/log/sector?')){
+    if(url.startsWith('/api/v1/log/sector/')){
+      assert.equal(url,'/api/v1/log/sector/0/1/'+crc);
       return {ok:true,status:200,
         arrayBuffer:async()=>Uint8Array.from(sector).buffer};
     }
