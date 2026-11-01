@@ -32,6 +32,11 @@ option(ENABLE_BINARY_FLASH_LOGGER "EXPERIMENTAL: persistent 24-byte environmenta
 # Security: this becomes publicly reachable via Cloudflare Tunnel unless edge Access
 # protects /logs.html and /api/v1/log/*. Never enable on a public tunnel without Access.
 option(ENABLE_BINARY_WEB_EXPORT "EXPERIMENTAL: web binary-log download; requires Cloudflare Access protection" OFF)
+# RP2350-initiated NTP/SNTP (not a Windows time proxy); enable for NCM.
+option(ENABLE_SNTP_TIME "RP2350 directly queries an Internet NTP server via routed USB NCM" ${ENABLE_USB_NCM_WEB_PHASE1})
+if(ENABLE_SNTP_TIME AND NOT ENABLE_USB_NCM_WEB_PHASE1)
+    message(FATAL_ERROR "RP2350 SNTP requires ENABLE_USB_NCM_WEB_PHASE1=ON")
+endif()
 if(ENABLE_BINARY_WEB_EXPORT AND (NOT ENABLE_BINARY_FLASH_LOGGER OR NOT ENABLE_USB_NCM_WEB_PHASE1))
     message(FATAL_ERROR "Binary Web Export requires ENABLE_BINARY_FLASH_LOGGER=ON and ENABLE_USB_NCM_WEB_PHASE1=ON")
 endif()
@@ -159,6 +164,10 @@ if(ENABLE_USB_NCM_WEB_PHASE1)
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c"
         "${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dnserver.c"
     )
+    if(ENABLE_SNTP_TIME)
+        target_sources(environment_monitor PRIVATE src/usb_composite/sntp_time.c)
+        target_link_libraries(environment_monitor PRIVATE pico_lwip_sntp)
+    endif()
     if(ENABLE_BINARY_WEB_EXPORT)
         target_sources(environment_monitor PRIVATE src/usb_composite/log_web.c)
         target_include_directories(environment_monitor PRIVATE src/logger)
@@ -209,6 +218,7 @@ target_compile_definitions(environment_monitor PRIVATE
     PROJECT_ENABLE_SENSE_HAT_V1=$<BOOL:${ENABLE_SENSE_HAT_V1}>
     PROJECT_ENABLE_BINARY_LOGGER=$<BOOL:${ENABLE_BINARY_FLASH_LOGGER}>
     PROJECT_ENABLE_BINARY_WEB_EXPORT=$<BOOL:${ENABLE_BINARY_WEB_EXPORT}>
+    PROJECT_ENABLE_SNTP_TIME=$<BOOL:${ENABLE_SNTP_TIME}>
 )
 
 if(ENABLE_USB_NCM_WEB_PHASE1)
