@@ -1,5 +1,28 @@
 # RP2350 Environment Monitor
 
+## Current mainline: native RP2350 SNTP + protected History (2026-11-01)
+
+The `main` branch now includes USB CDC-NCM, Binary Flash Logger,
+Cloudflare Access-protected Binary Web Export and Browser Historical
+Dashboard, plus the **RP2350-originated** lwIP SNTP client.
+
+**NTP is initiated by the MCU**, which resolves
+`time.cloudflare.com` and sends UDP/123. Windows does *not* run an NTP
+bridge; it is only the USB-NCM IP router/NAT hop. The MCU interface is
+`192.168.7.1`, Windows `192.168.7.2`, and RP2350 uses the Windows
+IP as its outgoing gateway when `ENABLE_SNTP_TIME=ON`.
+
+**Important:** Changes are committed to `main` but **are not yet
+Windows ARM cross-build or hardware verified**. The still-running
+previously verified device firmware is not modified by GitHub edits.
+Do not flash until `./scripts/build.ps1 -BuildDir build-ncm` and its
+4 MiB image partition guard pass. Actual Internet UTC requires Windows
+NAT/forwarding (not automatic) and allowed UDP/53 plus UDP/123.
+
+Detailed architecture, Flash UTC anchors, unchanged ELOG layout and
+validation gates: [Native RP2350 SNTP](docs/rp2350-native-sntp.md).
+
+
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
 
 **Status:** P0 five sensor identities PASS; P1 all-sensor initial data-acquisition PASS on hardware (2026-10-28), with 6/6 INIT OK and nine consecutive 1 Hz USB CDC samples. **Remaining:** SGP40 VOC Index after warmup, LTR390 UV stimulus response, lux/IMU calibration, offline incremental build and long-duration validation. See [P1 all-sensor evidence](docs/p1-all-sensors.md) and [validation record](docs/validation.md).
