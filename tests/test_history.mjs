@@ -42,6 +42,18 @@ for(let k=0;k<2;k++){
 
 async function scenario(kind){
  let clicked, manifestCalls=0,elementMap=new Map(),chartDraws=0;
+ const fixture=payload.slice();
+ let activeCRC=headerCRC;
+ if(kind==='utc'){
+   fixture[39]=1;fixture[56]=1;
+   const utc=1793523600000000n,boot=3000000n;
+   for(let k=0;k<8;k++){
+     fixture[40+k]=Number((utc>>BigInt(k*8))&255n);
+     fixture[48+k]=Number((boot>>BigInt(k*8))&255n);
+   }
+   activeCRC=crc32(fixture,0,252);
+   for(let k=0;k<4;k++)fixture[252+k]=(activeCRC>>>(k*8))&255;
+ }
  const ctx={
   clearRect(){},setTransform(){},fillText(){},beginPath(){},moveTo(){},
   lineTo(){},stroke(){},set font(v){},set fillStyle(v){},
@@ -79,10 +91,10 @@ async function scenario(kind){
    manifestCalls++;
    const corruptGeneration=kind==='recycled' && manifestCalls>48;
    return {ok:true,json:async()=>({schema:'rp2350.envlog.list.v1',start,
-    entries:start===0?[[0,corruptGeneration?2:1,headerCRC]]:[]})};
+    entries:start===0?[[0,corruptGeneration?2:1,activeCRC]]:[]})};
   }
-  if(path==='/api/v1/log/sector/0/1/'+headerCRC){
-   const clone=payload.slice();
+  if(path==='/api/v1/log/sector/0/1/'+activeCRC){
+   const clone=fixture.slice();
    if(kind==='crc')clone[256+16+2]^=0x80;
    if(kind==='gap'){
      const at=512+8;const newSeq=12;
@@ -101,13 +113,18 @@ async function scenario(kind){
  await clicked();
  assert.equal(manifestCalls,kind==='crc'?48:manifestCallsPerScan*2);
  const message=elementMap.get('message').textContent;
- if(kind==='good'||kind==='gap'){
+ if(kind==='good'||kind==='gap'||kind==='utc'){
   assert.equal(elementMap.get('samples').textContent,'20');
   assert.equal(elementMap.get('sessions').textContent,'1');
   assert.equal(elementMap.get('warnings').textContent,kind==='gap'?'1':'0');
   assert.equal(elementMap.get('session').value,'7');
   assert.ok(chartDraws>0);
   assert.match(message,/History ready: 20 CRC-valid records/);
+  if(kind==='utc'){
+    assert.match(elementMap.get('time-note').textContent,/UTC from RP2350 SNTP/);
+  } else {
+    assert.match(elementMap.get('time-note').textContent,/boot-relative time/);
+  }
  }else{
   assert.match(message,/History load aborted/);
   assert.equal(elementMap.get('samples').textContent,'—');
@@ -116,6 +133,7 @@ async function scenario(kind){
  }
 }
 await scenario('good');
+await scenario('utc');
 await scenario('gap');
 await scenario('crc');
 await scenario('recycled');
