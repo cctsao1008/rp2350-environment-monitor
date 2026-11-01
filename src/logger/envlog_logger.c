@@ -4,6 +4,9 @@
 #include "hardware/flash.h"
 #include "hardware/regs/addressmap.h"
 #include "pico/flash.h"
+#if PROJECT_ENABLE_SNTP_TIME
+#include "sntp_time.h"
+#endif
 
 // This module is linked only for explicit ENABLE_BINARY_FLASH_LOGGER=ON.
 // It must never program below 4 MiB or outside the 12 MiB logging partition.
@@ -90,7 +93,16 @@ static bool select_and_open_sector(void) {
         if (!empty && (!known || (found_any && index == latest_sector)))
             continue;
         if (known && !safe_flash(off, NULL, true)) return false;
-        envlog_make_sector_header(flash_page, generation, session_id);
+#if PROJECT_ENABLE_SNTP_TIME
+        rp2350_utc_anchor_t utc;
+        if (rp2350_sntp_anchor(&utc)) {
+            envlog_make_sector_header_utc(flash_page, generation, session_id,
+                                          true, utc.utc_us, utc.monotonic_us);
+        } else
+#endif
+        {
+            envlog_make_sector_header(flash_page, generation, session_id);
+        }
         if (!safe_flash(off, flash_page, false)) return false;
         active_sector=index;
         latest_sector=index;
