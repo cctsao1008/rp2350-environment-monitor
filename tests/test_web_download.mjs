@@ -16,8 +16,8 @@ write32(8,1);write32(12,10);write32(16,4194304);write32(20,12582912);
 sector.set([24,0,0,1,0,16,10,0],24);
 const crc=crc32(sector,252);write32(252,crc);
 
-async function scenario(mutate) {
-  let clicks=0, emittedBlob, onClick, manifestCalls=0;
+async function scenario(mode) {
+  let clicks=0, emittedBlob, onClick, manifestCalls=0, statusCalls=0;
   const els=new Map();
   for(const id of ['download','progress','result','summary']){
     els.set(id,{disabled:true,value:0,max:1,textContent:'',
@@ -32,19 +32,25 @@ async function scenario(mutate) {
     assert.equal(options.redirect,'error');
     const fail=message=>{throw Error(message)};
     if(url==='/api/v1/log/status'){
+      statusCalls++;
       return {ok:true,status:200,json:async()=>({
         schema:'rp2350.envlog.export.v1',partitionBytes:12582912,
         sectorBytes:4096,sectorCount:SLOTS,manifestPage:64,
-        validSectors:1,unknownHeaders:0,version:1})};
+        validSectors:mode==='append' && statusCalls>1?2:1,
+        unknownHeaders:0,version:1})};
     }
     if(url.startsWith('/api/v1/log/list/')){
       manifestCalls++;
       const start=Number(url.slice('/api/v1/log/list/'.length));
       assert.equal(url,'/api/v1/log/list/'+start);
-      const mutated=mutate&&manifestCalls>48;
+      const isFinalScan=manifestCalls>48;
       return {ok:true,status:200,json:async()=>({
         schema:'rp2350.envlog.list.v1',start,
-        entries:start===0?[[0,mutated?2:1,crc]]:[]})};
+        entries:start===0?(
+          mode==='recycle' && isFinalScan?[[0,2,crc]]:
+          mode==='append' && isFinalScan?[[0,1,crc],[1,2,crc]]:
+          [[0,1,crc]]
+        ):[]})};
     }
     if(url.startsWith('/api/v1/log/sector/')){
       assert.equal(url,'/api/v1/log/sector/0/1/'+crc);
@@ -62,7 +68,7 @@ async function scenario(mutate) {
   await onClick();
   assert.equal(els.get('download').disabled,false);
   assert.equal(manifestCalls,96,'Initial and final manifest must each scan 48 pages');
-  if(mutate){
+  if(mode==='recycle'){
     assert.equal(clicks,0,'Changed sector generation must abort download');
     assert.match(els.get('result').textContent,/aborted/i);
   }else{
@@ -75,6 +81,7 @@ async function scenario(mutate) {
     assert.match(els.get('result').textContent,/Downloaded 1 sectors/);
   }
 }
-await scenario(false);
-await scenario(true);
-console.log('browser binary export simulated integration PASS');
+await scenario('stable');
+await scenario('append');
+await scenario('recycle');
+console.log('browser binary export stable/append/recycle integration PASS');
