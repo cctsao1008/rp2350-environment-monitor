@@ -235,6 +235,74 @@ the authenticated log path at the same time, and inspect cloudflared
 origin connection logs if 502 persists. Do not reflash again solely
 because of that 502.
 
+## Cloudflare Access long-header HTTP 502 — targeted fix (2026-11-01)
+
+**Reproduced on RP2350 Web Export firmware**, with `cloudflared` Tunnel healthy
+and the same origin hostname serving HTTP 200 on both the local USB NCM path
+and public unauthenticated Dashboard. Authenticated `/logs.html` fails with
+Cloudflare HTTP 502 (Host Error).
+
+User's **fake** `Cookie: CF_Authorization=...` and
+`Cf-Access-Jwt-Assertion: ...` headers, each of the indicated size,
+sent **directly to** `192.168.7.1` (no actual secrets):
+
+| Fake header size each | Local origin |
+| --- | --- |
+| 64 B | HTTP 200 |
+| 512 B | HTTP 200 |
+| 1500 B | curl (52) empty reply, HTTP 000 |
+| 3000 B | curl (52) empty reply, HTTP 000 |
+
+The pinned Pico SDK's lwIP HTTPD uses the upstream
+`LWIP_HTTPD_MAX_REQ_LENGTH` and `LWIP_HTTPD_REQ_BUFSIZE` defaults of
+**1023 B**, with global `httpd_req_buf` for chained TCP pbufs. The
+observed threshold is consistent with its request-header accumulation/
+parsing limit. The real Access JWT length was not measured and must
+not be copied into bug reports.
+
+**Fix in `src/usb_composite/lwipopts.h` on this branch:**
+only when `PROJECT_ENABLE_BINARY_WEB_EXPORT=1`:
+
+```c
+#define LWIP_HTTPD_SUPPORT_REQUESTLIST 1
+#define LWIP_HTTPD_REQ_QUEUELEN 8
+#define LWIP_HTTPD_REQ_BUFSIZE 8192
+#define LWIP_HTTPD_MAX_REQ_LENGTH 8192
+#define PBUF_POOL_SIZE 8
+```
+
+Default NCM build retains `PBUF_POOL_SIZE=4` and upstream
+`MAX_REQ_LENGTH` defaults. This adds approximately 7 KiB of shared
+HTTPD parser buffer plus four 1600-byte pbufs (with allocation
+overhead) in the enabled build; assess actual SRAM use on target.
+`MEM_SIZE` and all Sensor/Logger storage logic are unchanged.
+
+**Host CI** verifies the enabled and disabled configurations, existing
+Dashboard compilation, binary codec and parser, native C HTTP API
+tests, and simulated browser download. These tests do not replace
+actual RP2350 network validation.
+
+**Windows validation sequence (do not flash before build PASS):**
+
+```powershell
+git switch feature/binary-log-web-download
+git pull --ff-only origin feature/binary-log-web-download
+.\scripts\build.ps1 -BuildDir build-ncm
+# Confirm the image guard PASS and inspect RAM use if available.
+# Only after build PASS, using existing USB Vendor Reset updater:
+.\scripts\flash.ps1 -BuildDir build-ncm -Ncm
+```
+
+**Target regression:** repeat the same 64/512/1500/3000-byte **fake
+headers** against `http://192.168.7.1/logs.html`. All four should
+return HTTP 200; especially confirm 1500/3000 B no longer drop.
+Retest unauthenticated `/logs.html` → Cloudflare Access 302 and
+public live `/` and `/api/v1/sensors.json` → 200. Then sign in
+and open `https://sensor.cafefeed.idv.tw/logs.html` and download the
+12 MiB binary; parse with `tools/envlog_parse.py`, check CRC/samples
+and compare with pre-update `envlog-pre-web.bin`. If any step fails,
+stop before repeating firmware updates.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
