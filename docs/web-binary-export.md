@@ -62,6 +62,44 @@ the native host CI passes.
 If Access cannot be configured, **leave the feature OFF** and continue
 using the already-proven USB Vendor Reset + `picotool save -r` path.
 
+## lwIP URI handling: fix for first download HTTP 400 (2026-11-01)
+
+In a real RP2350 deployment, Cloudflare Access now allows the authorized
+owner to load `/logs.html` and the Web UI retrieves `status` with
+**359 valid ELOG sector headers**, 0 unknown headers. However the first
+browser manifest fetch to `/api/v1/log/list?start=0` returns HTTP 400.
+
+Root cause confirmed against the upstream lwIP HTTPD
+`http_find_file()`: it finds `?` and writes NUL into the URI **before**
+calling `fs_open()` and the project's `fs_open_custom()`. The project's
+earlier direct C host tests bypassed this normalization step, passing
+the unsplit query to `log_web_open()`, and therefore missed the bug.
+
+**Fix:** use **query-free path segments** for all required numeric arguments:
+
+```text
+GET /api/v1/log/status
+GET /api/v1/log/list/0
+GET /api/v1/log/list/64
+GET /api/v1/log/sector/0/17/4096290011   # values illustrative
+```
+
+`N` is the physical list-page start, 0..3071 in multiples of 64.
+The sector endpoint takes decimal physical slot, generation, CRC32.
+A strict decimal parser rejects overflow, signs, extra fields, empty
+segments and out-of-range sector IDs. Existing Cloudflare Access
+`/api/v1/log/*` path protection still covers the new endpoints.
+
+Host CI now exercises the exact URI visible *after lwIP normalization*,
+not only a raw `?start=` string, and the browser Node test rejects
+old query-style requests. This change is entirely HTTP API routing;
+the binary format, Flash logger data and sensor sampling are unchanged.
+
+**Target verification pending:** Windows ARM build, USB Vendor Reset
+Flash, first local `/api/v1/log/list/0` HTTP 200 returning a JSON
+manifest, then authenticated browser download and Parser CRC checks.
+Do not interpret the screenshot of HTTP 400 as Flash corruption.
+
 ## HTTP API (GET, no arbitrary-address reads)
 
 | URL | Payload |
@@ -69,7 +107,7 @@ using the already-proven USB Vendor Reset + `picotool save -r` path.
 | `/logs.html` | Download interface accessible after Access authentication |
 | `/api/v1/log/status` | Bounded JSON summary and export geometry |
 | `/api/v1/log/list?start=0` | Manifest entries for 64 physical sectors, next start is 64 |
-| `/api/v1/log/sector?slot=N&gen=G&crc=C` | Exactly 4096 bytes of that known ELOG sector |
+| `/api/v1/log/sector/N/G/C` | Exactly 4096 bytes of that known ELOG sector |
 
 - `slot`: 0..3071, mapped internally to flash offset
   `0x400000 + slot * 4096`. **No user-controllable address.**
