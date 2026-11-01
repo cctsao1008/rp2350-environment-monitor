@@ -400,6 +400,50 @@ Browser code checks each downloaded ELOG sector's Header CRC and performs manife
 
 **Status:** Web Export end-to-end transmission PASS; Record integrity/firmware-update retention PENDING; partition wraparound/power loss/reliability PENDING. No new Firmware modification needed from current screenshots. Do not close Issue #1 or merge Draft PR #3 solely on screenshot evidence.
 
+## Full browser export and preservation — RP2350 verified PASS (2026-11-01)
+
+Windows/Chrome downloaded the owner-authenticated Cloudflare Access export
+`environment-log-2026-11-01T09-12-54-209Z.bin`, length **12,582,912 bytes**.
+The user ran the actual offline Python parser on this new file and on the
+pre-firmware-update PICOBOOT backup:
+
+```text
+BEFORE — envlog-pre-web.bin
+Flash: 3072 sectors; valid ELOG headers=349; header-only=2; fully erased=2723; invalid/unknown=0
+Decoded: 51970 samples, 2 data-bearing sessions, 0 warnings
+
+AFTER — environment-log-2026-11-01T09-12-54-209Z.bin
+Flash: 3072 sectors; valid ELOG headers=365; header-only=3; fully erased=2707; invalid/unknown=0
+Decoded: 53980 samples, 6 data-bearing sessions, 0 warnings
+
+CSV line content comparison (all original decoded data rows as set members):
+Previous Records: 51970
+Missing Historical Records: 0
+```
+
+**PASS, actual target/end-to-end**: Cloudflare Access protected browser
+download, bounded Manifest + Sector HTTP APIs, physical-position-preserving
+12 MiB Flash image, **CRC-valid** headers/pages decoded by Python, and
+preservation of **all 51,970 decoded pre-update CSV rows** in the new
+export. The new export contains **2,010 more decoded records**, 16 more
+valid sectors, and four more data-bearing sessions, consistent with
+recording continuing through reboot/update cycles. No warnings or
+unknown-header sectors were reported.
+
+**Precise scope:** The PowerShell history check used a `HashSet` of CSV
+lines, proving each original row has a matching row in the export;
+it is not a multiplicity-preserving comparison of duplicate identical
+rows, nor does it prove anything about unwritten/incomplete records.
+No UTC timestamp was recovered (timestamps are boot-relative).
+
+The following remain **unqualified**: complete **3,072-sector**
+circular overwrite and generation wrap, arbitrary power-loss/torn-page
+recovery, high-duration HTTP/USB throughput and sampling jitter stress,
+and security behavior if Access configuration is removed or bypassed.
+Issue #1 remains open for these reliability cases; Draft PR #3 remains
+unmerged until release decision. **No additional Firmware changes are
+indicated by these results.**
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -410,11 +454,11 @@ Browser code checks each downloaded ELOG sector's Header CRC and performs manife
       download and second-pass generation-race rejection
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [x] Existing live JSON Dashboard smoke over local NCM (HTTP 200; six sensor groups reported)
-- [x] Actual public Cloudflare Access-authenticated browser 12 MiB download (365 sectors, screenshot; host parser CRC pending)
+- [x] Actual Access-authenticated browser download: 12,582,912 bytes, 365 sectors, 53,980 CRC-valid records, 0 parser warnings
 - [x] Cloudflare Access app/owner policy saved; public root and live JSON HTTP 200, anonymous Log page/status/list HTTP 302
 - [x] Check Access redirect Location and direct /api/v1/log/sector anonymous denial (both HTTP 302 to Cloudflare Access)
-- [ ] Authenticated download after firmware flashing and parser CRC/record verification
-- [ ] On-device concurrent logging + downloadable data CRC tests
+- [x] Authenticated export after flashing and independent host Parser CRC verification (53,980 records, 0 warnings)
+- [x] On-target log accumulation with browser export and zero CRC warnings; extended timing/latency stress still pending
 - [ ] Full 12 MiB export latency and 1 Hz sampling effect
 
 **Never assume Cloudflare Access is enabled based on a successful firmware build.**
