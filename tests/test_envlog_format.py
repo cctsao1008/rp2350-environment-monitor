@@ -144,7 +144,7 @@ class FormatTests(unittest.TestCase):
         self.assertEqual(
             log.sector_header(bytes(new))["anchor_utc_us"],anchor_utc_us)
 
-        image = bytearray(b"\\xff" * (2*4096))
+        image = bytearray(b"\xff" * (2*4096))
         image[:256] = old
         image[256:512] = page(base=1000000, seq=1)
         image[4096:4352] = new
@@ -161,7 +161,7 @@ class FormatTests(unittest.TestCase):
         self.assertIsNone(log.sector_header(bytes(old))["anchor_utc_us"])
 
         # A different boot without a header UTC anchor cannot borrow it.
-        another = bytearray(b"\\xff" * 4096)
+        another = bytearray(b"\xff" * 4096)
         another[:256] = sector_header(gen=43, session=9)
         another[256:512] = page(base=1000000, seq=1)
         older, problems = log.scan(bytes(another))
