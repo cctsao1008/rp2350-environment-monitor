@@ -417,7 +417,7 @@ static void render_json(json_writer_t *w, const sensor_snapshot_t *s) {
                     "\"reason\":\"no_ntp_reply_or_stale\"}");
     }
 #endif
-    json_add(w, "}\\n");
+    json_add(w, "}\n");
 }
 
 /* lwIP HTTPD custom file hooks; GET-only, no post handlers, no I2C reads. */
