@@ -15,7 +15,7 @@
 
 #if PROJECT_ENABLE_BINARY_WEB_EXPORT
 #include "log_web.h"
-#define LOG_DOWNLOAD_LINK "<p class=\"meta\"><a href=\"/logs.html\">Download Binary Log</a> (protected access required)</p>\n"
+#define LOG_DOWNLOAD_LINK "<p class=\"meta\"><a href=\"/logs.html\">Download Binary Log</a> · <a href=\"/api/v1/log/history\">Historical Trends</a> (protected access required)</p>\n"
 #else
 #define LOG_DOWNLOAD_LINK ""
 #endif
