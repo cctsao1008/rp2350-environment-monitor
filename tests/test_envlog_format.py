@@ -128,6 +128,47 @@ class FormatTests(unittest.TestCase):
         self.assertEqual(rows[-1]["session_id"], 12)
         self.assertFalse(log.sector_header(sector_header())["utc_valid"])
 
+    def test_sntp_utc_anchor_and_backward_compatibility(self):
+        # Build one old sector and one UTC-anchored sector in the same
+        # session; recover UTC by boot-relative monotonic time, not filename.
+        old = bytearray(sector_header(gen=40, session=8))
+        new = bytearray(sector_header(gen=41, session=8))
+        anchor_mono_us = 25000000
+        anchor_utc_us = 1793523600000000
+        new[39] = 1
+        struct.pack_into("<QQ", new, 40, anchor_utc_us, anchor_mono_us)
+        new[56] = 1
+        struct.pack_into("<I", new, 252,
+                         zlib.crc32(new[:252]) & 0xffffffff)
+        self.assertTrue(log.sector_header(bytes(new))["utc_valid"])
+        self.assertEqual(
+            log.sector_header(bytes(new))["anchor_utc_us"],anchor_utc_us)
+
+        image = bytearray(b"\\xff" * (2*4096))
+        image[:256] = old
+        image[256:512] = page(base=1000000, seq=1)
+        image[4096:4352] = new
+        image[4352:4608] = page(base=25000000, seq=11)
+        rows, problems = log.scan(bytes(image))
+        self.assertEqual(problems, [])
+        self.assertEqual(len(rows), 20)
+        self.assertEqual(rows[10]["utc_quality"], "sntp_anchor")
+        self.assertEqual(rows[10]["timestamp_utc"],
+                         "2026-11-01T09:00:00.000Z")
+        self.assertEqual(rows[0]["utc_quality"],
+                         "sntp_back_extrapolated")
+        self.assertIsNotNone(rows[0]["timestamp_utc"])
+        self.assertIsNone(log.sector_header(bytes(old))["anchor_utc_us"])
+
+        # A different boot without a header UTC anchor cannot borrow it.
+        another = bytearray(b"\\xff" * 4096)
+        another[:256] = sector_header(gen=43, session=9)
+        another[256:512] = page(base=1000000, seq=1)
+        older, problems = log.scan(bytes(another))
+        self.assertEqual(problems, [])
+        self.assertIsNone(older[0]["timestamp_utc"])
+        self.assertIsNone(older[0]["utc_quality"])
+
     def test_torn_page_retains_earlier_data(self):
         image = bytearray(b"\xff"*4096)
         image[0:256] = sector_header()
