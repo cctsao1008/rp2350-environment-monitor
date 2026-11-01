@@ -156,6 +156,16 @@ This is still a **build-only** validation. Cloudflare Access remains a
 deployment prerequisite; RP2350 HTTP export has not yet been flashed
 or tested on-device.
 
+
+## Access configuration saved — 2026-11-01
+
+Cloudflare Access API confirms application `RP2350 Sensor Log Download` is saved
+with two exact destinations `sensor.cafefeed.idv.tw/logs.html` and
+`sensor.cafefeed.idv.tw/api/v1/log/*`, one owner-Email Allow policy, and
+24-hour session. Edge protection **must still be checked using unauthenticated
+HTTP GET requests** before deploying firmware with `ENABLE_BINARY_WEB_EXPORT=ON`.
+Verify legacy `/` and `/api/v1/sensors.json` stay reachable without login.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -167,7 +177,7 @@ or tested on-device.
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [ ] Existing 1 Hz JSON Dashboard regression
 - [ ] Actual localhost USB CDC-NCM browser download
-- [ ] Existing public Cloudflare domain with Access enabled and tested
+- [ ] Cloudflare Access app and owner policy saved [DONE configuration]; test no-cookie requests and authenticated download on public domain [PENDING]
 - [ ] On-device concurrent logging + downloadable data CRC tests
 - [ ] Full 12 MiB export latency and 1 Hz sampling effect
 
