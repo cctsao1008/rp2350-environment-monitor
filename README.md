@@ -81,11 +81,12 @@ The prior HTS221 investigation remains documented in
 `docs/sense-hat-v1.md` and `docs/validation.md`; it is archived
 as prior evidence rather than deleted.
 
-## Experimental USB Web branch (Phase 1 / Phase 2)
+## USB Web development history (Phase 1 / Phase 2)
 
-The opt-in `feature/usb-ncm-web-phase1` branch uses
-`ENABLE_USB_NCM_WEB_PHASE1=ON`; the default build remains the stable
-CDC-only configuration, and `main` is unchanged.
+The feature branches and evidence below document the original development
+sequence. They are **historical notes**: USB NCM, live JSON, Web Export
+and protected History have since been integrated into `main`.
+The opt-in NCM build uses `ENABLE_USB_NCM_WEB_PHASE1=ON`.
 
 **Phase 1 hardware PASS (2026-10-30):** Windows 11 CDC-NCM and CDC ACM,
 DHCP, DNS (`sensor.usb`), ICMP, lwIP HTTP, and automatic Vendor Reset /
@@ -94,7 +95,7 @@ The user reported the stability run completed; its aggregate metrics
 were not supplied. The two-value TinyUSB NCM divisor fix is now
 reproduced in the build directory without modifying the pinned submodule.
 
-**Phase 2 source staged (not rebuilt or device-tested):** a read-only
+**Initial Phase 2 implementation (subsequently verified and integrated):** a read-only
 Sensor JSON API at `/api/v1/sensors.json` and an embedded live Dashboard
 at `/` use the existing 1Hz Sensor Manager snapshot. The Dashboard now
 identifies stale/repeated sequences, reports per-sensor validity, and
