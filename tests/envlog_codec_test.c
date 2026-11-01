@@ -41,6 +41,25 @@ int main(void) {
     assert(envlog_read_u32(head+8)==0xffffffffu);
     head[32]^=1u;
     assert(!envlog_sector_header_valid(head));
+
+    /* UTC anchors extend the existing immutable, CRC-covered sector header,
+       without changing the 24-byte record or the v1 geometry. */
+    const uint64_t utc_us=1793523600000000ull;
+    const uint64_t boot_us=87654321000ull;
+    envlog_make_sector_header_utc(head,23u,9u,true,utc_us,boot_us);
+    assert(envlog_sector_header_valid(head));
+    assert(head[39]==1u && head[56]==1u);
+    uint64_t decoded_utc=0,decoded_boot=0;
+    for (unsigned k=0;k<8;k++) {
+        decoded_utc|=(uint64_t)head[40+k]<<(8*k);
+        decoded_boot|=(uint64_t)head[48+k]<<(8*k);
+    }
+    assert(decoded_utc==utc_us && decoded_boot==boot_us);
+    head[48]^=1u;
+    assert(!envlog_sector_header_valid(head));
+    envlog_make_sector_header(head,24u,10u);
+    assert(envlog_sector_header_valid(head));
+    assert(head[39]==0u && head[40]==0xffu && head[56]==0xffu);
     puts("envlog codec host tests PASS");
     return 0;
 }
