@@ -25,14 +25,14 @@ int main(void) {
     assert(strstr(body(&f),"\"validSectors\":1"));
     close_file(&f);
 
-    assert(log_web_open(&f,"/api/v1/log/list?start=0")==1);
+    assert(log_web_open(&f,"/api/v1/log/list/0")==1);
     assert(strstr(body(&f),"[0,17,"));
     close_file(&f);
 
     uint32_t crc=envlog_read_u32(sector_head+252);
     char url[180];
     snprintf(url,sizeof(url),
-             "/api/v1/log/sector?slot=0&gen=17&crc=%lu",
+             "/api/v1/log/sector/0/17/%lu",
              (unsigned long)crc);
     assert(log_web_open(&f,url)==1);
     assert(strstr(f.data,"200 OK"));
@@ -50,19 +50,38 @@ int main(void) {
     assert(strstr(f.data,"200 OK"));
     close_file(&f);
 
-    assert(log_web_open(&f,"/api/v1/log/sector?slot=3072&gen=17&crc=5")==1);
+    assert(log_web_open(&f,"/api/v1/log/sector/3072/17/5")==1);
     assert(strstr(f.data,"400 Bad Request"));
-    assert(log_web_open(&f,"/api/v1/log/sector?slot=0&gen=18&crc=5")==1);
+    assert(log_web_open(&f,"/api/v1/log/sector/0/18/5")==1);
     assert(strstr(f.data,"409 Conflict"));
-    assert(log_web_open(&f,"/api/v1/log/sector?slot=0&gen=17&crc=1")==1);
+    assert(log_web_open(&f,"/api/v1/log/sector/0/17/1")==1);
     assert(strstr(f.data,"409 Conflict"));
-    assert(log_web_open(&f,"/api/v1/log/sector?slot=0&gen=17&crc=1&slot=0")==1);
+    assert(log_web_open(&f,"/api/v1/log/sector/0/17/1/0")==1);
     assert(strstr(f.data,"400 Bad Request"));
-    assert(log_web_open(&f,"/api/v1/log/list?start=63")==1);
+    assert(log_web_open(&f,"/api/v1/log/list/63")==1);
     assert(strstr(f.data,"400 Bad Request"));
-    assert(log_web_open(&f,"/api/v1/log/list?start=4294967296")==1);
+    assert(log_web_open(&f,"/api/v1/log/list/4294967296")==1);
     assert(strstr(f.data,"400 Bad Request"));
-    assert(log_web_open(&f,"/api/v1/log/list?start=64")==1);
+    /*
+     * lwIP HTTPD strips query parameters before calling fs_open_custom().
+     * Regress against the exact stripped URI instead of passing raw
+     * /list?start=0 directly to the server handler.
+     */
+    assert(log_web_open(&f,"/api/v1/log/list")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/list/")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/sector")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/sector/0/17/")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/sector/0/17/-1")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/sector/0/17/4294967296")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/list/0/1")==1);
+    assert(strstr(f.data,"400 Bad Request"));
+    assert(log_web_open(&f,"/api/v1/log/list/64")==1);
     assert(strstr(f.data,"200 OK"));
     close_file(&f);
     assert(log_web_open(&f,"/logs.html")==1);
