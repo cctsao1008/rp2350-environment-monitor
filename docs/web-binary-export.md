@@ -138,6 +138,24 @@ the individual CMake feature flags; if needed, verify
 Web Export-enabled image while the public Cloudflare Tunnel remains
 unauthenticated.
 
+
+### CMake flag verification — 2026-11-01
+
+The user inspected `build-ncm/CMakeCache.txt` after the successful
+141/141 Windows cross-build:
+
+```text
+ENABLE_BINARY_FLASH_LOGGER:BOOL=ON
+ENABLE_BINARY_WEB_EXPORT:BOOL=ON
+ENABLE_USB_NCM_WEB_PHASE1:BOOL=ON
+```
+
+All three required options are **confirmed ON**. Firmware link,
+115176-byte image guard, and enabled feature configuration: **PASS**.
+This is still a **build-only** validation. Cloudflare Access remains a
+deployment prerequisite; RP2350 HTTP export has not yet been flashed
+or tested on-device.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -146,7 +164,7 @@ unauthenticated.
 - [x] Full existing Dashboard HTTPD native syntax check with export ON
 - [x] Browser automation-style Node contract test: synthetic 12 MiB
       download and second-pass generation-race rejection
-- [x] ARM Windows build of experimental web-download branch (141/141, image 115176 B, 4 MiB guard PASS; confirm feature flags in CMakeCache)
+- [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [ ] Existing 1 Hz JSON Dashboard regression
 - [ ] Actual localhost USB CDC-NCM browser download
 - [ ] Existing public Cloudflare domain with Access enabled and tested
