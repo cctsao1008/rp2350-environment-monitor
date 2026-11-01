@@ -12,6 +12,9 @@
 #include "lwip/apps/fs.h"
 #include "lwip/mem.h"
 #include "sensor_web.h"
+#if PROJECT_ENABLE_SNTP_TIME
+#include "sntp_time.h"
+#endif
 
 #if PROJECT_ENABLE_BINARY_WEB_EXPORT
 #include "log_web.h"
@@ -392,7 +395,29 @@ static void render_json(json_writer_t *w, const sensor_snapshot_t *s) {
     } else if (s->icm20948_ok && s->icm20948.mag_overflow) {
         json_add(w, ",\"reason\":\"overflow\"");
     }
-    json_add(w, "}}\n");
+    json_add(w, "}");
+#if PROJECT_ENABLE_SNTP_TIME
+    /* Read-only diagnostic: the SNTP client originates on RP2350.
+       Legacy Sensor JSON fields and schema remain unchanged. */
+    rp2350_utc_anchor_t anchor;
+    uint64_t utc_us;
+    if (rp2350_sntp_anchor(&anchor) &&
+        rp2350_sntp_now_utc_us(&utc_us)) {
+        json_add(w,
+            ",\"ntp\":{\"synchronized\":true,\"source\":\"rp2350-sntp\","
+            "\"server\":\"time.cloudflare.com\","
+            "\"utc_unix_s\":%lu,\"utc_microseconds\":%lu,"
+            "\"age_ms\":%lu,\"updates\":%lu}",
+            (unsigned long)(utc_us/1000000ull),
+            (unsigned long)(utc_us%1000000ull),
+            (unsigned long)anchor.age_ms,
+            (unsigned long)anchor.updates);
+    } else {
+        json_add(w, ",\"ntp\":{\"synchronized\":false,"
+                    "\"reason\":\"no_ntp_reply_or_stale\"}");
+    }
+#endif
+    json_add(w, "}\\n");
 }
 
 /* lwIP HTTPD custom file hooks; GET-only, no post handlers, no I2C reads. */
