@@ -5,11 +5,13 @@ on:
     branches:
       - feature/binary-flash-logger
       - feature/binary-log-web-download
+      - feature/historical-dashboard
   workflow_dispatch:
   pull_request:
     branches:
       - feature/usb-ncm-web-phase1
       - feature/binary-flash-logger
+      - feature/binary-log-web-download
 
 permissions:
   contents: read
@@ -63,3 +65,17 @@ jobs:
           PY
           node --check /tmp/envlog_web.js
           node tests/test_web_download.mjs /tmp/envlog_web.js
+      - name: Verify protected browser History parser, CRC and chart tests
+        run: |
+          python3 - <<'PY'
+          import ast,re,pathlib
+          h=pathlib.Path('src/usb_composite/log_history_page.h').read_text()
+          pieces=re.findall(r'^"(?:\\.|[^"\\])*"$',h,re.M)
+          page=''.join(ast.literal_eval(p) for p in pieces)
+          assert '/api/v1/log/list/' in page and '/api/v1/log/sector/' in page
+          assert '/api/v1/log/history' not in page or '/api/v1/log/' in page
+          script=page.split('<script>',1)[1].split('</script>',1)[0]
+          pathlib.Path('/tmp/envlog_history.js').write_text(script)
+          PY
+          node --check /tmp/envlog_history.js
+          node tests/test_history.mjs /tmp/envlog_history.js
