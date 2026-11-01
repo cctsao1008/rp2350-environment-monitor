@@ -358,6 +358,23 @@ After pulling the browser/lwIP path-segment fix and building/flashing `feature/b
 
 The 64 listed headers are **not** proof of HTTP binary payload transfer or of all page CRCs. Next recommended bounded test: `/api/v1/log/sector/0/1/542648003` should produce a 4096-byte binary file. Then retry authenticated browser 12 MiB export and parse with existing `tools/envlog_parse.py`; compare pre-update historical records. Do not declare end-to-end download PASS before that evidence.
 
+
+
+### 4 KiB Binary Sector API on-target PASS — 2026-11-01
+
+Following successful Windows cross-build, verified USB Vendor Flash, and Query-free Manifest HTTP JSON PASS, user executed the **actual target** binary response test:
+
+```text
+curl --noproxy '*' -sS --max-time 20 -o envlog-sector0.bin \
+  http://192.168.7.1/api/v1/log/sector/0/1/542648003
+HTTP=200 Bytes=4096
+(Get-Item .\\envlog-sector0.bin).Length = 4096
+```
+
+**PASS:** HTTP 200 and exact 4096-byte sector binary transport for physical slot 0, generation 1, manifest-provided sector header CRC32 542648003. This verifies that the path-segment sector API returns a complete transfer on RP2350 over USB NCM. **Not yet tested:** independent CRC integrity for the downloaded 4 KiB bytes; complete authenticated browser 12 MiB image reconstruction; per-page CRC, record count, historical data retention compared with pre-update dump. No further Firmware changes or reflashing indicated by this result.
+
+**Next step:** retry authenticated `https://sensor.cafefeed.idv.tw/logs.html` → Download Binary Log, confirm file length 12,582,912 bytes, then parse the downloaded file with `tools/envlog_parse.py` and check for `0 warnings`, comparing against `envlog-pre-web.bin` without assuming sample count is unchanged while logging continues.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
