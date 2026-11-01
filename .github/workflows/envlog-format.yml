@@ -28,6 +28,8 @@ jobs:
         run: /tmp/envlog_codec_test
       - name: Verify Python parser and synthetic power-loss recovery
         run: python3 -m unittest discover -s tests -p 'test_envlog_format.py' -v
+      - name: Verify local host backup and race/CRC fail-closed behavior
+        run: python3 -m unittest discover -s tests -p 'test_envlog_backup.py' -v
       - name: Compile and run native C HTTPD web-export tests
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
