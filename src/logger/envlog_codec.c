@@ -94,6 +94,12 @@ bool envlog_page_valid(const uint8_t page[ENVLOG_PAGE_BYTES]) {
 }
 void envlog_make_sector_header(uint8_t out[ENVLOG_HEADER_BYTES],
                                uint32_t generation, uint32_t session_id) {
+    envlog_make_sector_header_utc(out, generation, session_id, false, 0, 0);
+}
+void envlog_make_sector_header_utc(uint8_t out[ENVLOG_HEADER_BYTES],
+                                  uint32_t generation, uint32_t session_id,
+                                  bool utc_valid, uint64_t utc_unix_us,
+                                  uint64_t monotonic_us) {
     memset(out, 0xff, ENVLOG_HEADER_BYTES);
     memcpy(out, "ELOG", 4);
     put16(out + 4, ENVLOG_FORMAT_VERSION);
@@ -106,14 +112,19 @@ void envlog_make_sector_header(uint8_t out[ENVLOG_HEADER_BYTES],
     put16(out + 26, ENVLOG_PAGE_BYTES);
     put16(out + 28, ENVLOG_SECTOR_BYTES);
     put16(out + 30, ENVLOG_RECORDS_PER_PAGE);
-    // Current firmware settings (immutable within one session).
     put16(out + 32, 408u);  // TSL2591 device factor
-    put16(out + 34, 2700u); // TSL2591 temporary relative factor x1000
-    out[36] = 0x10u; // TSL2591 control: 100 ms / 25x
-    out[37] = 0x22u; // LTR390 rate: 18 bit / 100 ms
-    out[38] = 0x01u; // LTR390 3x
-    out[39] = 0u;    // UTC anchor valid: false (no trusted wall clock)
-    // Future config/UTC anchor metadata reserved at 40..251 (0xff).
+    put16(out + 34, 2700u); // TSL2591 relative factor x1000
+    out[36] = 0x10u; // TSL2591 control: 100ms / 25x
+    out[37] = 0x22u; // LTR390 18-bit / 100ms
+    out[38] = 0x01u; // LTR390 gain 3x
+    out[39] = utc_valid ? 1u : 0u;
+    if (utc_valid) {
+        put64(out + 40, utc_unix_us);
+        put64(out + 48, monotonic_us);
+        out[56] = 1u;  // UTC anchor schema 1; remainder reserved 0xff
+    }
+    // The 252-byte header metadata is committed once and NEVER modified
+    // in place. CRC covers the new fields and all legacy reserved bytes.
     put32(out + 252, envlog_crc32(out, 252u));
 }
 bool envlog_sector_header_valid(const uint8_t h[ENVLOG_HEADER_BYTES]) {
