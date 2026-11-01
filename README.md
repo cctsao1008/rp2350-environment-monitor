@@ -418,3 +418,23 @@ SGP40; the 1 Hz IMU and magnetometer are deliberately excluded.
   `picotool save -r ... -f` (no manual BOOTSEL button).
 
 See [Binary Logger v1 specification, safety gates and tests](docs/binary-logger-v1.md).
+
+### Experimental browser Binary Log export (separate opt-in branch)
+
+[Draft PR #3](https://github.com/cctsao1008/rp2350-environment-monitor/pull/3)
+adds a read-only `/logs.html` page and bounded paged export APIs.
+The browser reconstructs the existing 12 MiB raw Flash `.bin` for
+`tools/envlog_parse.py`, without rebooting the RP2350.
+
+The separate build switch `ENABLE_BINARY_WEB_EXPORT` is **OFF by default**
+and requires both `ENABLE_BINARY_FLASH_LOGGER` and
+`ENABLE_USB_NCM_WEB_PHASE1`. **Never enable it on the existing public
+Cloudflare Tunnel before Cloudflare Access is configured to protect
+`/logs.html` and every `/api/v1/log/*` URL**. The connected Cloudflare
+account currently reports Access **not enabled**; these APIs otherwise
+have no independent authentication. See the
+[deployment and security checklist](docs/web-binary-export.md).
+
+Current state: native C HTTP route tests and embedded JavaScript syntax
+checks pass; RP2350 Windows cross-build and on-device browser export
+still require verification.

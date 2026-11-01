@@ -13,6 +13,13 @@
 #include "lwip/mem.h"
 #include "sensor_web.h"
 
+#if PROJECT_ENABLE_BINARY_WEB_EXPORT
+#include "log_web.h"
+#define LOG_DOWNLOAD_LINK "<p class=\"meta\"><a href=\"/logs.html\">Download Binary Log</a> (protected access required)</p>\n"
+#else
+#define LOG_DOWNLOAD_LINK ""
+#endif
+
 #define SENSOR_JSON_CAPACITY 2048u
 
 static sensor_snapshot_t latest_snapshot;
@@ -97,6 +104,7 @@ static const char dashboard_response[] =
     "<p class=\"meta\" id=\"meta\">Waiting for first completed sample.</p>\n"
     "<p class=\"meta\">Read-only local USB interface &middot;\n"
     "<a href=\"/api/v1/sensors.json\">Sensor JSON API</a></p>\n"
+    LOG_DOWNLOAD_LINK
     "</main>\n"
     "<script>\n"
     "'use strict';\n"
@@ -395,6 +403,9 @@ int fs_open_custom(struct fs_file *file, const char *name) {
         serve_literal(file, dashboard_response, sizeof(dashboard_response) - 1u);
         return 1;
     }
+#if PROJECT_ENABLE_BINARY_WEB_EXPORT
+    if (log_web_open(file,name)) return 1;
+#endif
     if (!url_matches(name, "/api/v1/sensors.json")) return 0;
 
     if (!latest_valid) {
@@ -421,6 +432,9 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 }
 
 void fs_close_custom(struct fs_file *file) {
+#if PROJECT_ENABLE_BINARY_WEB_EXPORT
+    if (log_web_close(file)) return;
+#endif
     if (file != NULL && file->pextension != NULL) {
         mem_free(file->pextension);
         file->pextension = NULL;

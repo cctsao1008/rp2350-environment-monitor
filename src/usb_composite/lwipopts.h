@@ -28,7 +28,30 @@
 #define LWIP_HTTPD_DYNAMIC_HEADERS 0
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_SINGLE_NETIF 1
+
+/*
+ * Cloudflare Access forwards authentication cookies/JWT headers to the
+ * origin. The lwIP HTTPD default request parsing limit is only 1023 B;
+ * requests spanning several NCM TCP segments then fail before fs_open_custom.
+ *
+ * The native Target tests show 2x512-byte synthetic auth headers pass but
+ * 2x1500- and 2x3000-byte headers fail with an empty reply. Use one bounded
+ * 8 KiB parser only when the protected Web Binary Export is opted in.
+ * LWIP_HTTPD_REQ_BUFSIZE alone is NOT enough: httpd.c copies at most
+ * LWIP_HTTPD_MAX_REQ_LENGTH into its shared request parsing buffer.
+ *
+ * RX pbuf pool/queue sizes also need to accept a multi-segment 8 KiB header.
+ * No dynamic unbounded allocation; reserve at most eight 1600-B pbufs.
+ */
+#if PROJECT_ENABLE_BINARY_WEB_EXPORT
+#define LWIP_HTTPD_SUPPORT_REQUESTLIST 1
+#define LWIP_HTTPD_REQ_QUEUELEN 8
+#define LWIP_HTTPD_REQ_BUFSIZE 8192
+#define LWIP_HTTPD_MAX_REQ_LENGTH 8192
+#define PBUF_POOL_SIZE 8
+#else
 #define PBUF_POOL_SIZE 4
+#endif
 #define PBUF_POOL_BUFSIZE 1600
 #define HTTPD_USE_CUSTOM_FSDATA 0
 #define LWIP_MULTICAST_PING 1
