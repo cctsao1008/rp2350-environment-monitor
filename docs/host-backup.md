@@ -67,8 +67,22 @@ The client bypasses system HTTP proxies and refuses HTTP redirects.
 
 ## Remaining real-world acceptance
 
-- [ ] First real Windows host-side CLI capture and Parser verification
+- [x] First physical Windows host-side USB-NCM CLI capture: 60,950 samples, 1,890 UTC, 412 sectors, 0 warnings, reported 2026-11-01; BIN+JSON created
 - [ ] Historical record preservation check against an earlier backup
 - [ ] Two scheduled daily runs from Task Scheduler
 - [ ] Retention, off-device copies and missed-run detection
 - [ ] Full Flash wraparound and unexpected power loss (separate reliability)
+
+## First physical Windows host backup — 2026-11-01
+
+Owner executed the CLI from the Windows project root against the physically
+USB-NCM-connected board. It reported 60,950 samples, 1,890 UTC mapped
+samples, 412 valid sectors and **zero Parser warnings**. A full BIN and a
+SHA-256 JSON report were saved in the requested host backup directory.
+The reported digest was
+`c85aadea48b20a2b37a51054eef30039d2e6378455c63a114d01a629f9a7ac0c`.
+This is on-target evidence (owner console), not merely CI simulation.
+
+The 59,690-record previous snapshot has 1,260 fewer records than this
+backup; exact record-by-record historical preservation is pending
+comparison. No local Task Scheduler job was installed by GitHub changes.
