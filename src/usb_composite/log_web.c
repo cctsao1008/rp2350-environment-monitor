@@ -51,7 +51,7 @@ static bool route(const char *path, const char *target) {
     return strncmp(path,target,n)==0 && (path[n]=='?' || path[n]==0);
 }
 /*
- * lwIP's http_find_file() replaces '?' with '\\0' BEFORE calling fs_open()
+ * lwIP's http_find_file() replaces '?' with '\0' BEFORE calling fs_open()
  * and fs_open_custom(), even with LWIP_HTTPD_CGI=0. Thus the custom file
  * callback cannot see query parameters. Route parameters are encoded as
  * decimal path segments instead, within a fixed 3072-sector address space.
@@ -60,7 +60,7 @@ static bool route(const char *path, const char *target) {
  */
 static bool route_family(const char *url, const char *base) {
     const size_t n = strlen(base);
-    return strncmp(url,base,n)==0 && (url[n]=='/' || url[n]=='\\0');
+    return strncmp(url,base,n)==0 && (url[n]=='/' || url[n]=='\0');
 }
 static bool decimal_segment(const char **cursor,uint32_t *out,bool last) {
     const char *p=*cursor;
@@ -73,7 +73,7 @@ static bool decimal_segment(const char **cursor,uint32_t *out,bool last) {
         ++p;
     } while (*p>='0' && *p<='9');
     if (last) {
-        if (*p!='\\0') return false;
+        if (*p!='\0') return false;
     } else {
         if (*p!='/') return false;
         ++p;
