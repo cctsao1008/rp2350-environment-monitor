@@ -346,6 +346,18 @@ and open `https://sensor.cafefeed.idv.tw/logs.html` and download the
 and compare with pre-update `envlog-pre-web.bin`. If any step fails,
 stop before repeating firmware updates.
 
+
+
+### Query-free manifest API verified on target — 2026-11-01
+
+After pulling the browser/lwIP path-segment fix and building/flashing `feature/binary-log-web-download` with the existing Windows USB Vendor Reset workflow, the user's transcript shows:
+
+- `environment_monitor.elf` Build **PASS**.
+- `./scripts/flash.ps1 -BuildDir build-ncm -Ncm`: Flash load 100%, Verify 100% OK, reboot requested, no manual BOOTSEL or MSC.
+- Local real RP2350 `curl --noproxy '*' http://192.168.7.1/api/v1/log/list/0`: **valid JSON HTTP body** with schema `rp2350.envlog.list.v1`, `start=0`, exactly 64 entries for physical slots **0..63**; recorded `generation` **1..64** and individual Header CRC32 values. This was the previously broken Query String path, now **target-validated PASS**.
+
+The 64 listed headers are **not** proof of HTTP binary payload transfer or of all page CRCs. Next recommended bounded test: `/api/v1/log/sector/0/1/542648003` should produce a 4096-byte binary file. Then retry authenticated browser 12 MiB export and parse with existing `tools/envlog_parse.py`; compare pre-update historical records. Do not declare end-to-end download PASS before that evidence.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
