@@ -87,6 +87,13 @@ int main(void) {
     assert(log_web_open(&f,"/logs.html")==1);
     assert(strstr(f.data,"Download Binary Log"));
     close_file(&f);
+    // History must be inside /api/v1/log/*: existing Cloudflare Access policy.
+    assert(log_web_open(&f,"/api/v1/log/history")==1);
+    assert(strstr(f.data,"Environmental History"));
+    assert(strstr(f.data,"Five-minute history"));
+    assert(strstr(f.data,"/api/v1/log/list/"));
+    close_file(&f);
+    assert(log_web_open(&f,"/history.html")==0);
     assert(log_web_open(&f,"/api/v1/sensors.json")==0);
     puts("web log export host tests PASS");
     return 0;
