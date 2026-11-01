@@ -38,7 +38,7 @@ This is an incremental, non-atomic snapshot. New pages or sectors
 created during transfer may be absent. Later backups include them.
 The tool never invents UTC or modifies ELOG data.
 
-## Windows Task Scheduler — optional after first device PASS
+## Windows Task Scheduler — deferred; optional only if the owner later requests it
 
 Create a task in Windows Task Scheduler under the normal user account:
 
@@ -69,7 +69,7 @@ The client bypasses system HTTP proxies and refuses HTTP redirects.
 
 - [x] First physical Windows host-side USB-NCM CLI capture: 60,950 samples, 1,890 UTC, 412 sectors, 0 warnings, reported 2026-11-01; BIN+JSON created
 - [ ] Historical record preservation check against an earlier backup
-- [ ] Two scheduled daily runs from Task Scheduler
+- [ ] Daily scheduling intentionally deferred by owner (2026-11-01); do not configure a task unless requested
 - [ ] Retention, off-device copies and missed-run detection
 - [ ] Full Flash wraparound and unexpected power loss (separate reliability)
 
@@ -86,3 +86,16 @@ This is on-target evidence (owner console), not merely CI simulation.
 The 59,690-record previous snapshot has 1,260 fewer records than this
 backup; exact record-by-record historical preservation is pending
 comparison. No local Task Scheduler job was installed by GitHub changes.
+
+
+## 2026-11-01 final manual-backup integrity verification
+
+The owner verified the on-disk file size is **12,582,912 bytes** and
+`SHA256 Match: True` against the accompanying JSON metadata.
+An independently re-run Host Parser reported **412 valid ELOG headers,
+3 header-only sectors, 2660 erased sectors, 0 unknown headers,
+60,950 samples in 7 data-bearing sessions, and 0 warnings**.
+Manual/on-demand host backup is therefore validated end-to-end.
+Windows Task Scheduler was **explicitly deferred**; no daily automated
+backup is needed at present. Row-level comparison to the immediately
+previous 59,690-record snapshot is still a separate optional check.
