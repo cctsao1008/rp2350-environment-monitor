@@ -6,6 +6,7 @@ No HTTP endpoint or automatic network access is used. Requires Python 3.9+.
 """
 import argparse
 import csv
+import datetime as dt
 import struct
 import sys
 import zlib
@@ -23,6 +24,7 @@ FLAGS = {
 }
 FIELDS = [
     "generation", "session_id", "sequence", "timestamp_monotonic_us",
+    "timestamp_utc", "utc_quality",
     "bme_valid", "temp_c", "rh_percent", "pressure_pa",
     "tsl_valid", "tsl_saturated", "tsl_ch0", "tsl_ir", "tsl_lux_relative",
     "ltr_valid", "ltr_als", "ltr_uv", "ltr_lux", "ltr_uvi",
@@ -57,7 +59,11 @@ def sector_header(page):
         "tsl_control": page[36],
         "ltr_rate": page[37],
         "ltr_gain": page[38],
-        "utc_valid": bool(page[39]),
+        "utc_valid": page[39] == 1 and page[56] == 1,
+        "anchor_utc_us": struct.unpack_from("<Q", page, 40)[0]
+            if page[39] == 1 and page[56] == 1 else None,
+        "anchor_monotonic_us": struct.unpack_from("<Q", page, 48)[0]
+            if page[39] == 1 and page[56] == 1 else None,
     }
 
 def page_rows(page, meta):
@@ -109,6 +115,8 @@ def page_rows(page, meta):
             "session_id": meta["session_id"],
             "sequence": (base_seq + i) & 0xffffffff,
             "timestamp_monotonic_us": base_us + delta * 1000,
+            "timestamp_utc": None,
+            "utc_quality": None,
             "bme_valid": bme,
             "temp_c": t/100 if bme else None,
             "rh_percent": rh/100 if bme else None,
@@ -175,6 +183,18 @@ def scan(image):
         if ((gen - newest + 2**31) % 2**32) - 2**31 > 0:
             newest = gen
     sectors.sort(key=lambda item: (newest-item[0]) & 0xffffffff, reverse=True)
+
+    # A valid NTP anchor is stored only in newly opened CRC-covered ELOG
+    # headers. Use the latest anchor from the SAME boot session to derive
+    # wall-clock time; never borrow one from a different reboot.
+    # Retrospective timestamps before synchronization are explicitly marked.
+    anchors = {}
+    for _, _, meta in sectors:
+        if meta["utc_valid"]:
+            anchors[meta["session_id"]] = (
+                meta["anchor_monotonic_us"], meta["anchor_utc_us"]
+            )
+    epoch = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
     rows = []
     for _, off, meta in sectors:
         for page_num in range(1, 16):
@@ -186,6 +206,20 @@ def scan(image):
                 break
             if not decoded:  # unused page terminates this sector
                 break
+            anchor = anchors.get(meta["session_id"])
+            if anchor is not None:
+                mono_ref, utc_ref = anchor
+                for row in decoded:
+                    delta = row["timestamp_monotonic_us"] - mono_ref
+                    sample_utc = utc_ref + delta
+                    if 1577836800000000 <= sample_utc < 4102444800000000:
+                        row["timestamp_utc"] = (
+                            epoch + dt.timedelta(microseconds=sample_utc)
+                        ).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+                        row["utc_quality"] = (
+                            "sntp_anchor" if delta >= 0 else
+                            "sntp_back_extrapolated"
+                        )
             rows.extend(decoded)
     return rows, problems
 
