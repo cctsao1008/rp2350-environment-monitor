@@ -14,6 +14,7 @@
 #include "envlog_codec.h"
 #include "log_web.h"
 #include "log_web_page.h"
+#include "log_history_page.h"
 
 #define LOG_HTTP_BUF (ENVLOG_SECTOR_BYTES + 256u)
 #define LOG_LIST_STRIDE 64u
@@ -201,6 +202,12 @@ int log_web_open(struct fs_file *file,const char *name) {
     if(!file||!name)return 0;
     if(route(name,"/logs.html")){
         literal(file,log_web_page,sizeof(log_web_page)-1u);
+        return 1;
+    }
+    // This route is covered by the existing Access /api/v1/log/* rule:
+    // never make the full historical view publicly reachable.
+    if(route(name,"/api/v1/log/history")){
+        literal(file,log_history_page,sizeof(log_history_page)-1u);
         return 1;
     }
     bool status=route(name,"/api/v1/log/status");
