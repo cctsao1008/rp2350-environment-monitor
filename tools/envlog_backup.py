@@ -193,7 +193,12 @@ def save_verified(image, summary, out_dir):
             json.dump(summary, f, indent=2, sort_keys=True)
             f.write("\n")
     except OSError as exc:
-        raise BackupError(f"Binary saved at {target}; metadata write failed: {exc}") from exc
+        # Do not leave an apparently complete BIN without its checksum report.
+        try:
+            target.unlink()
+        except OSError:
+            pass  # Report the path if cleanup is blocked.
+        raise BackupError(f"Sidecar write failed; check {target}: {exc}") from exc
     return target, sidecar
 
 
