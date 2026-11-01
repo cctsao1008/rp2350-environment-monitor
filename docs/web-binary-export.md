@@ -202,6 +202,39 @@ User tested unauthenticated public routes directly with `curl.exe`, retaining HT
 
 **Remaining target gates:** after reboot check `http://192.168.7.1/api/v1/log/status`, existing live JSON, authorized `https://sensor.cafefeed.idv.tw/logs.html` login/download, 12 MiB .bin / Python record+CRC validation, and comparison against `envlog-pre-web.bin` to verify FW-update preservation. Do not yet mark on-target Web Download PASS.
 
+## Post-flash local HTTP smoke — PASS (2026-11-01)
+
+After initially seeing a Cloudflare Access login page followed by **HTTP 502
+Host Error** at the authenticated public URL, the user checked Windows
+USB NCM and queried the RP2350 directly. Actual results:
+
+```text
+NCM adapter RP2350 Sensor Experiment USB Network: Up, 12 Mbps
+Windows IP: 192.168.7.2/24
+
+GET /                     HTTP 200, total 26.27 ms
+GET /api/v1/sensors.json  HTTP 200, total 5.46 ms
+GET /api/v1/log/status    HTTP 200, total 101.57 ms
+GET /logs.html            HTTP 200, total 16.52 ms
+
+Flash export metadata:
+validSectors=350, unknownHeaders=0,
+sectorCount=3072, sectorBytes=4096, partitionBytes=12582912
+```
+
+Sensor JSON includes all six current sensor groups and SGP40 VOC Index
+ready. Cloudflare API shows Tunnel `cafefeed.idv.tw` is **healthy**,
+with one Windows connector and four active Cloudflare connections, and
+the origin is still `http://192.168.7.1:80`.
+
+These results qualify **local** USB NCM, Dashboard, live JSON and logger
+status HTTP. They do **not** establish that authenticated public
+`/logs.html` is usable or that binary `/sector` transfer works.
+The public HTTP 502 root cause remains open: retest public root versus
+the authenticated log path at the same time, and inspect cloudflared
+origin connection logs if 502 persists. Do not reflash again solely
+because of that 502.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -211,8 +244,8 @@ User tested unauthenticated public routes directly with `curl.exe`, retaining HT
 - [x] Browser automation-style Node contract test: synthetic 12 MiB
       download and second-pass generation-race rejection
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
-- [ ] Existing 1 Hz JSON Dashboard regression
-- [ ] Actual localhost USB CDC-NCM browser download (new ELF flashed, not yet HTTP-tested)
+- [x] Existing live JSON Dashboard smoke over local NCM (HTTP 200; six sensor groups reported)
+- [ ] Actual localhost USB CDC-NCM browser download (local /logs.html and /status are HTTP 200; binary sector transfer pending)
 - [x] Cloudflare Access app/owner policy saved; public root and live JSON HTTP 200, anonymous Log page/status/list HTTP 302
 - [x] Check Access redirect Location and direct /api/v1/log/sector anonymous denial (both HTTP 302 to Cloudflare Access)
 - [ ] Authenticated download after firmware flashing and parser CRC/record verification
