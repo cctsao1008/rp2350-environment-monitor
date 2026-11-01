@@ -24,7 +24,7 @@ static const char log_web_page[] =
 "progress{display:block;width:100%;margin:16px 0}\n"
 "#result{white-space:pre-wrap;word-break:break-word;color:#b1e6d0}\n"
 "</style></head><body><main>\n"
-"<a href=\"/\">Back to live dashboard</a>\n"
+"<a href=\"/\">Back to live dashboard</a> · <a href=\"/api/v1/log/history\">Historical Trends</a>\n"
 "<h1>Environment Binary Log</h1>\n"
 "<p>Read-only export of BME280, TSL2591, LTR390 and SGP40 raw/fixed-point history. IMU is intentionally excluded.</p>\n"
 "<section>\n"
