@@ -154,7 +154,8 @@ static void init_lwip(void) {
 #if PROJECT_ENABLE_SNTP_TIME
   /* Public recursive resolver, reached via Windows IPv4 NAT. Never point
      DNS at RP2350's own captive local DNS responder (192.168.7.1). */
-  const ip_addr_t resolver = IPADDR4_INIT_BYTES(1,1,1,1);
+  ip_addr_t resolver;
+  IP_ADDR4(&resolver,1,1,1,1);
   dns_setserver(0,&resolver);
 #endif
 }
