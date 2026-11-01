@@ -12,15 +12,40 @@ bridge; it is only the USB-NCM IP router/NAT hop. The MCU interface is
 `192.168.7.1`, Windows `192.168.7.2`, and RP2350 uses the Windows
 IP as its outgoing gateway when `ENABLE_SNTP_TIME=ON`.
 
-**Important:** Changes are committed to `main` but **are not yet
-Windows ARM cross-build or hardware verified**. The still-running
-previously verified device firmware is not modified by GitHub edits.
-Do not flash until `./scripts/build.ps1 -BuildDir build-ncm` and its
-4 MiB image partition guard pass. Actual Internet UTC requires Windows
-NAT/forwarding (not automatic) and allowed UDP/53 plus UDP/123.
+**Hardware validation (2026-11-01):** Windows ARM cross-build and
+4 MiB image guard PASS (140,420 B firmware image); RP2350 ELF flash/verify
+PASS. Windows WinNAT and USB-NCM forwarding enabled outbound MCU DNS/SNTP:
+the running firmware reports `ntp.synchronized=true` with
+`source=rp2350-sntp`. A newly downloaded 12 MiB Binary ELOG image
+decoded **59,690 samples in 7 sessions, including 630 UTC-mapped records,
+with zero Parser warnings**. Comparison against the prior 53,980-record
+baseline found **zero missing records**. The browser Historical Dashboard
+calendar axis remains to be verified on actual Chrome. SNTP provides
+approximate time, not authenticated or precision clock synchronization.
+Full ring wraparound, unexpected power failure and sustained operation
+also remain unqualified. Existing Wi-Fi IPv4 forwarding did not need
+to be enabled on this verified Windows setup.
 
 Detailed architecture, Flash UTC anchors, unchanged ELOG layout and
 validation gates: [Native RP2350 SNTP](docs/rp2350-native-sntp.md).
+
+## Windows host automatic log backup (new; target acceptance pending)
+
+The standard-library Python tool `tools/envlog_backup.py` uses existing
+**local USB NCM** read-only GETs to export a complete 12 MiB ELOG image.
+It validates manifest identity, Sector Header CRC and host Parser data
+integrity before publishing a timestamped BIN + JSON SHA-256 report.
+No MCU Firmware, Flash, web routes, or Cloudflare policies are changed.
+
+First manual run from the repository root:
+
+```powershell
+py -3 .\tools\envlog_backup.py --outdir "$env:USERPROFILE\RP2350-Log-Backups"
+```
+
+See [Windows Host Backup](docs/host-backup.md) for Task Scheduler setup,
+failure semantics and no-hardware regression tests. A real-device Host
+Backup run and daily schedule are **not yet verified**.
 
 
 Embedded environmental-sensor bring-up for **Waveshare RP2350-PiZero + Environment Sensor HAT**, directly connected over the 40-pin header.
