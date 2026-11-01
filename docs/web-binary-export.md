@@ -166,6 +166,24 @@ with two exact destinations `sensor.cafefeed.idv.tw/logs.html` and
 HTTP GET requests** before deploying firmware with `ENABLE_BINARY_WEB_EXPORT=ON`.
 Verify legacy `/` and `/api/v1/sensors.json` stay reachable without login.
 
+
+
+### Actual public ingress HTTP Access smoke test — 2026-11-01
+
+User ran no-browser-cookie `curl.exe` against five public HTTPS URLs and reported:
+
+```text
+200  https://sensor.cafefeed.idv.tw/
+200  https://sensor.cafefeed.idv.tw/api/v1/sensors.json
+302  https://sensor.cafefeed.idv.tw/logs.html
+302  https://sensor.cafefeed.idv.tw/api/v1/log/status
+302  https://sensor.cafefeed.idv.tw/api/v1/log/list?start=0
+```
+
+**PASS:** Public Dashboard and live JSON remain reachable anonymously (HTTP 200); protected Log page, status, list redirect without an Access session (HTTP 302). This is expected for Access and supports correct path selectivity.
+
+**Final security preflight outstanding:** Confirm `Location` header for the 302 points to Cloudflare Access login (not an unrelated origin redirect), and test **direct binary sector** endpoint `/api/v1/log/sector?slot=0&gen=1&crc=0` anonymously also returns Access redirect/denial; no redirect-following or browser cookies. Then back up existing on-device 12 MiB log partition before enabling Web Export, flash the previously built/verified ELF, check anonymous protection remains in place, and perform authenticated browser + Parser tests. Logged data survives firmware update only if actually observed; not yet qualified.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -177,7 +195,8 @@ Verify legacy `/` and `/api/v1/sensors.json` stay reachable without login.
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [ ] Existing 1 Hz JSON Dashboard regression
 - [ ] Actual localhost USB CDC-NCM browser download
-- [ ] Cloudflare Access app and owner policy saved [DONE configuration]; test no-cookie requests and authenticated download on public domain [PENDING]
+- [x] Cloudflare Access app/owner policy saved; public root and live JSON HTTP 200, anonymous Log page/status/list HTTP 302
+- [ ] Check Access redirect Location and direct /api/v1/log/sector anonymous denial; authenticated download after flashing
 - [ ] On-device concurrent logging + downloadable data CRC tests
 - [ ] Full 12 MiB export latency and 1 Hz sampling effect
 
