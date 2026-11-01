@@ -50,6 +50,16 @@ bool envlog_page_valid(const uint8_t page[ENVLOG_PAGE_BYTES]);
 // record configuration and CRC32 at 252..255. Reserved bytes are 0xff.
 void envlog_make_sector_header(uint8_t out[ENVLOG_HEADER_BYTES],
                                uint32_t generation, uint32_t session_id);
+/* New sectors only: self-contained optional UTC-to-uptime anchor.
+ * v1 headers without an anchor (byte 39=0) remain fully compatible.
+ * Layout: [39] valid=1, [40..47] Unix UTC us LE, [48..55] uptime us LE,
+ * [56] anchor format version=1; header CRC at 252 still covers all bytes.
+ */
+void envlog_make_sector_header_utc(uint8_t out[ENVLOG_HEADER_BYTES],
+                                  uint32_t generation, uint32_t session_id,
+                                  bool utc_valid, uint64_t utc_unix_us,
+                                  uint64_t monotonic_us);
+
 bool envlog_sector_header_valid(const uint8_t head[ENVLOG_HEADER_BYTES]);
 uint32_t envlog_read_u32(const uint8_t *p);
 #endif
