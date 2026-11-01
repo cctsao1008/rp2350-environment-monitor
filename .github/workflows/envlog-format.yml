@@ -6,6 +6,7 @@ on:
       - feature/binary-flash-logger
       - feature/binary-log-web-download
       - feature/historical-dashboard
+      - main
   workflow_dispatch:
   pull_request:
     branches:
