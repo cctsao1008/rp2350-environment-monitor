@@ -184,6 +184,24 @@ User ran no-browser-cookie `curl.exe` against five public HTTPS URLs and reporte
 
 **Final security preflight outstanding:** Confirm `Location` header for the 302 points to Cloudflare Access login (not an unrelated origin redirect), and test **direct binary sector** endpoint `/api/v1/log/sector?slot=0&gen=1&crc=0` anonymously also returns Access redirect/denial; no redirect-following or browser cookies. Then back up existing on-device 12 MiB log partition before enabling Web Export, flash the previously built/verified ELF, check anonymous protection remains in place, and perform authenticated browser + Parser tests. Logged data survives firmware update only if actually observed; not yet qualified.
 
+
+
+### Protected public ingress and first Web Export ELF flashing — 2026-11-01
+
+User tested unauthenticated public routes directly with `curl.exe`, retaining HTTP response headers:
+
+- `GET /logs.html`: **HTTP 302**, `Location` points to `https://autumn-base-d285.cloudflareaccess.com/cdn-cgi/access/login/sensor.cafefeed.idv.tw`.
+- `GET /api/v1/log/sector?slot=0&gen=1&crc=0`: **HTTP 302** with the same Cloudflare Access login destination and protected path encoded in the redirect.
+- Earlier anonymous checks: `/` **200**, `/api/v1/sensors.json` **200**, `/api/v1/log/status` **302**, `/api/v1/log/list?start=0` **302**.
+
+**PASS: observed Cloudflare Access authentication redirect at public log page, status/list and actual sector API.** This validates anonymous gating for tested routes, not authorized login or every possible URL variant.
+
+**Pre-update backup:** User ran `picotool save -r 0x10400000 0x11000000 envlog-pre-web.bin -t bin --vid 51966 --pid 16547 -f` **twice**, each 12,582,912 bytes and both before firmware flashing; second command overwrote the file made by the first. Retain this file and parse it to establish a historical baseline before claiming preservation.
+
+**Experimental Web Export firmware successfully flashed:** `./scripts/flash.ps1 -BuildDir build-ncm -Ncm`, USB vendor reboot to PICOBOOT, load 100%, **Verify 100% OK**, application reboot requested. This is an ELF built with all three ON flags (previously verified CMakeCache), 115176 B image, 4 MiB guard PASS.
+
+**Remaining target gates:** after reboot check `http://192.168.7.1/api/v1/log/status`, existing live JSON, authorized `https://sensor.cafefeed.idv.tw/logs.html` login/download, 12 MiB .bin / Python record+CRC validation, and comparison against `envlog-pre-web.bin` to verify FW-update preservation. Do not yet mark on-target Web Download PASS.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -194,9 +212,10 @@ User ran no-browser-cookie `curl.exe` against five public HTTPS URLs and reporte
       download and second-pass generation-race rejection
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [ ] Existing 1 Hz JSON Dashboard regression
-- [ ] Actual localhost USB CDC-NCM browser download
+- [ ] Actual localhost USB CDC-NCM browser download (new ELF flashed, not yet HTTP-tested)
 - [x] Cloudflare Access app/owner policy saved; public root and live JSON HTTP 200, anonymous Log page/status/list HTTP 302
-- [ ] Check Access redirect Location and direct /api/v1/log/sector anonymous denial; authenticated download after flashing
+- [x] Check Access redirect Location and direct /api/v1/log/sector anonymous denial (both HTTP 302 to Cloudflare Access)
+- [ ] Authenticated download after firmware flashing and parser CRC/record verification
 - [ ] On-device concurrent logging + downloadable data CRC tests
 - [ ] Full 12 MiB export latency and 1 Hz sampling effect
 
