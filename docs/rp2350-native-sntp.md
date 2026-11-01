@@ -143,13 +143,32 @@ References:
 - [x] Legacy no-anchor header and UTC mapping host test vectors added.
 - [ ] GitHub Actions on `main` verify native C codec, Python and
   Browser tests after the latest commit.
-- [ ] Windows cross-compile, ELF image partition guard and SRAM usage.
-- [ ] Windows host routed NCM egress via NAT, DNS lookup, NTP reply.
-- [ ] Real `/api/v1/sensors.json` `ntp.synchronized=true`.
-- [ ] Record at least one full newly anchored ELOG Sector; export and
-  verify `timestamp_utc` in Host Parser CSV and History UI.
-- [ ] Reboot preserving prior 53,980-record baseline and 0 CRC warnings.
+- [x] Windows ARM GCC/Pico SDK cross-compile and ELF 4 MiB guard (140,420-byte image); detailed SRAM usage remains unqualified.
+- [x] Windows WinNAT active, NCM forwarding enabled, RP2350 actual DNS/SNTP outbound reply confirmed; Wi-Fi IPv4 Forwarding remained Disabled.
+- [x] Real `/api/v1/sensors.json` returned `ntp.synchronized=true`, `source=rp2350-sntp`, `updates=1`, plausible UTC.
+- [x] Web-exported 12 MiB ELOG binary included 630 UTC-mapped records in Session 9 (628 `sntp_anchor`, 2 `sntp_back_extrapolated`), 0 Parser warnings.
+- [ ] Historical Dashboard Chrome UTC calendar axis target validation.
+- [x] 53,980-record historical baseline preserved: new image 59,690 records, +5,710 newly decoded, 0 missing (comparison excludes derived UTC fields), 0 warnings.
+- [ ] Explicit reset during ongoing logging with no data loss beyond documented pending-page policy.
 - [ ] Clock step, loss-of-network, stale anchor, 1Hz sampling and
   Flash circular wrap reliability.
 
-No RP2350 flash has been executed by these commits.
+## Target verification evidence — 2026-11-01
+
+The project owner built and flashed the mainline image using the existing
+Vendor Reset + Picotool ELF/verify path. RP2350-originated SNTP succeeded
+through Windows USB-NCM WinNAT without enabling Wi-Fi IPv4 forwarding.
+Web Binary Export yielded a 12,582,912-byte image: 404 valid ELOG
+headers, 59,690 decoded samples, 7 data-bearing sessions, 630 records
+with UTC, and 0 warnings. All 53,980 earlier records were retained in
+the new snapshot when comparing original fields (excluding derived UTC).
+These are actual on-target/host results, not synthetic-only tests.
+
+Remaining separate qualifications: History UI UTC axis in Chrome,
+NTP re-sync/long outage, clock step/drift, full NOR ring recycle,
+unexpected power failure and long-duration sampling jitter.
+
+The host read-only backup utility is documented at
+[Windows Host Backup](host-backup.md). It has passing host CI, but the
+actual Windows USB-NCM backup and daily Task Scheduler automation
+remain pending physical host validation.
