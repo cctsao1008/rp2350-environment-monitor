@@ -106,7 +106,7 @@ Do not interpret the screenshot of HTTP 400 as Flash corruption.
 | --- | --- |
 | `/logs.html` | Download interface accessible after Access authentication |
 | `/api/v1/log/status` | Bounded JSON summary and export geometry |
-| `/api/v1/log/list?start=0` | Manifest entries for 64 physical sectors, next start is 64 |
+| `/api/v1/log/list/0` | Manifest entries for 64 physical sectors, next start is 64 |
 | `/api/v1/log/sector/N/G/C` | Exactly 4096 bytes of that known ELOG sector |
 
 - `slot`: 0..3071, mapped internally to flash offset
@@ -126,17 +126,22 @@ Do not interpret the screenshot of HTTP 400 as Flash corruption.
   **12 MiB raw Flash partition image** with missing sectors set to 0xff,
   and checks each Sector Header CRC in the browser. The host parser
   continues to be responsible for per-Page CRC validation.
-- Each download **re-reads status at click time** (the browser tab might
-  have been left open for hours). Before releasing the file, it re-reads
-  all manifest pages and aborts if the sector generations/CRCs or total
-  sector count changed during transfer. This does not freeze actively
-  accumulating pages, but detects ring recycling and sector additions.
-- Downloads do **not** stop the logger or reboot RP2350. While the
-  browser is enumerating all 3072 slots, new sectors may be added; the
-  browser aborts if the manifest count differs from the initial status.
-  For a full ring, a very long download may race sector recycling and
-  fail with 409; the user can retry. This is intentional fail-closed
-  behavior and not a multi-second atomic snapshot.
+- Each download **re-reads status at click time** (a tab might have
+  been open for hours), then gets a manifest of known sector identities.
+  Before releasing the image, it re-scans the manifests and requires
+  **all initial sector generation IDs and header CRC32 values to remain
+  unchanged**. If circular overwrite replaces an initial sector,
+  the transfer aborts instead of silently combining incompatible data.
+- Downloads do **not** stop the logger or reboot RP2350. New sectors
+  appended while downloading are acceptable and may be absent from this
+  export; they must **not** force an abort solely because the valid-sector
+  count increased. The current active sector's newly appended pages
+  may or may not be included depending on its read time. This is an
+  internally CRC-protected *incremental capture*, not an atomic point-in-time
+  snapshot, and final per-page CRC validation remains the Host parser's job.
+- With a full ring, an old sector can be recycled during a long download:
+  the per-sector identity checks and final manifest re-scan reject that
+  case. Retry after a conflict.
 - Full 12 MiB binary export into browser RAM (~12 MiB) can be expensive
   over the USB-NCM/Tunnel path. Performance and USB responsiveness
   require actual hardware tests.
