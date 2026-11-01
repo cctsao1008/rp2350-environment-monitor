@@ -84,6 +84,12 @@ async function scenario(kind){
   if(path==='/api/v1/log/sector/0/1/'+headerCRC){
    const clone=payload.slice();
    if(kind==='crc')clone[256+16+2]^=0x80;
+   if(kind==='gap'){
+     const at=512+8;const newSeq=12;
+     for(let k=0;k<4;k++)clone[at+k]=(newSeq>>>(k*8))&255;
+     const pageCrc=crc32(clone,512,512+256,512+12,512+16);
+     for(let k=0;k<4;k++)clone[512+12+k]=(pageCrc>>>(k*8))&255;
+   }
    return {ok:true,arrayBuffer:async()=>clone.buffer};
   }
   throw Error('Unexpected network URL '+path);
@@ -95,10 +101,10 @@ async function scenario(kind){
  await clicked();
  assert.equal(manifestCalls,kind==='crc'?48:manifestCallsPerScan*2);
  const message=elementMap.get('message').textContent;
- if(kind==='good'){
+ if(kind==='good'||kind==='gap'){
   assert.equal(elementMap.get('samples').textContent,'20');
   assert.equal(elementMap.get('sessions').textContent,'1');
-  assert.equal(elementMap.get('warnings').textContent,'0');
+  assert.equal(elementMap.get('warnings').textContent,kind==='gap'?'1':'0');
   assert.equal(elementMap.get('session').value,'7');
   assert.ok(chartDraws>0);
   assert.match(message,/History ready: 20 CRC-valid records/);
@@ -110,6 +116,7 @@ async function scenario(kind){
  }
 }
 await scenario('good');
+await scenario('gap');
 await scenario('crc');
 await scenario('recycled');
 console.log('history chart browser validation and race tests PASS');
