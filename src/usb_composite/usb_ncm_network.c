@@ -43,6 +43,10 @@
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
 #include "lwip/timeouts.h"
+#if PROJECT_ENABLE_SNTP_TIME
+#include "lwip/dns.h"
+#include "sntp_time.h"
+#endif
 #include "usb_ncm_network.h"
 
 #define INIT_IP4(a, b, c, d) \
@@ -62,7 +66,14 @@ uint8_t tud_network_mac_address[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
 /* network parameters of this MCU */
 static const ip4_addr_t ipaddr = INIT_IP4(192, 168, 7, 1);
 static const ip4_addr_t netmask = INIT_IP4(255, 255, 255, 0);
+/* To reach public NTP servers, RP2350 routes outbound IPv4 through the
+ * Windows NCM host at 192.168.7.2. Windows must explicitly enable
+ * forwarding/NAT. This is packet routing, NOT a host-side NTP proxy. */
+#if PROJECT_ENABLE_SNTP_TIME
+static const ip4_addr_t gateway = INIT_IP4(192, 168, 7, 2);
+#else
 static const ip4_addr_t gateway = INIT_IP4(0, 0, 0, 0);
+#endif
 
 /* database IP addresses that can be offered to the host; this must be in RAM to store assigned MAC addresses */
 static dhcp_entry_t entries[] = {
@@ -140,6 +151,12 @@ static void init_lwip(void) {
   netif_create_ip6_linklocal_address(netif, 1);
 #endif
   netif_set_default(netif);
+#if PROJECT_ENABLE_SNTP_TIME
+  /* Public recursive resolver, reached via Windows IPv4 NAT. Never point
+     DNS at RP2350's own captive local DNS responder (192.168.7.1). */
+  const ip_addr_t resolver = IPADDR4_INIT_BYTES(1,1,1,1);
+  dns_setserver(0,&resolver);
+#endif
 }
 
 /* handle any DNS requests from dns-server */
@@ -222,6 +239,9 @@ bool usb_ncm_network_init(void) {
     if (dhserv_init(&dhcp_config) != ERR_OK) return false;
     if (dnserv_init(IP_ADDR_ANY, 53, dns_query_proc) != ERR_OK) return false;
     httpd_init(); // Phase 2: local read-only dashboard + latest snapshot JSON.
+#if PROJECT_ENABLE_SNTP_TIME
+    rp2350_sntp_time_init(); // RP2350 sends its own UDP/123 requests.
+#endif
     return true;
 }
 
