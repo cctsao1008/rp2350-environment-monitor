@@ -375,6 +375,31 @@ HTTP=200 Bytes=4096
 
 **Next step:** retry authenticated `https://sensor.cafefeed.idv.tw/logs.html` → Download Binary Log, confirm file length 12,582,912 bytes, then parse the downloaded file with `tools/envlog_parse.py` and check for `0 warnings`, comparing against `envlog-pre-web.bin` without assuming sample count is unchanged while logging continues.
 
+
+
+### Cloudflare Access-authenticated Browser 12 MiB export SUCCESS — 2026-11-01
+
+User supplied screenshots of the **actual** public `https://sensor.cafefeed.idv.tw/logs.html` page and the Windows Downloads folder after clicking **Download Binary Log (.bin)**:
+
+```text
+Environment Binary Log
+Valid sectors: 365 of 3072
+Unknown headers: 0
+Format v1
+Downloaded 365 sectors into a 12 MiB binary partition image.
+New sectors created during download may not be included.
+Verify CRC with the host parser.
+
+Browser filename: environment-log-2026-11-01T09-12-54-209Z.bin
+Windows Explorer size: 12,288 KB (= 12 MiB = 12,582,912 bytes)
+```
+
+**PASS, now supported by actual hardware/browser screenshots:** Cloudflare Access-authenticated page and download, REST Status, paged Manifest, physical 4 KiB Sector API, client-side 12 MiB Flash partition reconstruction, browser file creation. Previously broken authenticated header (HTTP 502) and lwIP query URI (HTTP 400) paths are both resolved on target.
+
+Browser code checks each downloaded ELOG sector's Header CRC and performs manifest generation revalidation; successful completion indicates those browser checks did not abort. **Pending independent host-side confirmation:** run `tools/envlog_parse.py` against downloaded file to count CRC-valid pages/24-byte records and report warnings; also parse `envlog-pre-web.bin` captured prior to FW update, and compare old CSV records against the new export to validate historical preservation across firmware updates. `365 valid sectors` counts headers, not validated records.
+
+**Status:** Web Export end-to-end transmission PASS; Record integrity/firmware-update retention PENDING; partition wraparound/power loss/reliability PENDING. No new Firmware modification needed from current screenshots. Do not close Issue #1 or merge Draft PR #3 solely on screenshot evidence.
+
 ## Validation gates
 
 - [x] Native C export server test for bounded address and generation,
@@ -385,7 +410,7 @@ HTTP=200 Bytes=4096
       download and second-pass generation-race rejection
 - [x] ARM Windows build, 141/141 steps, 115176 B image and 4 MiB guard PASS; all three feature flags independently verified ON in CMakeCache
 - [x] Existing live JSON Dashboard smoke over local NCM (HTTP 200; six sensor groups reported)
-- [ ] Actual localhost USB CDC-NCM browser download (local /logs.html and /status are HTTP 200; binary sector transfer pending)
+- [x] Actual public Cloudflare Access-authenticated browser 12 MiB download (365 sectors, screenshot; host parser CRC pending)
 - [x] Cloudflare Access app/owner policy saved; public root and live JSON HTTP 200, anonymous Log page/status/list HTTP 302
 - [x] Check Access redirect Location and direct /api/v1/log/sector anonymous denial (both HTTP 302 to Cloudflare Access)
 - [ ] Authenticated download after firmware flashing and parser CRC/record verification
