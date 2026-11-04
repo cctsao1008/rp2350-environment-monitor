@@ -55,17 +55,17 @@ async function scenario(kind){
    for(let k=0;k<4;k++)fixture[252+k]=(activeCRC>>>(k*8))&255;
  }
  const ctx={
-  clearRect(){},setTransform(){},fillText(){},beginPath(){},moveTo(){},
+  clearRect(){},setTransform(){},fillText(){},beginPath(){},moveTo(){},arc(){},fill(){},
   lineTo(){},stroke(){},set font(v){},set fillStyle(v){},
   set strokeStyle(v){},set lineWidth(v){}
  };
  for(const id of [
-  'load','session','metric','progress','message','samples','sectors',
+  'load','session','metric','range','progress','message','samples','sectors',
   'sessions','warnings','plot','session-rows','chart-info','time-note'
  ]){
   const node={
    id,disabled:id==='session'||id==='metric',textContent:'',
-   value:id==='metric'?'temperature':'',max:1,clientWidth:860,
+   value:id==='metric'?'temperature':id==='range'?'hour':'',max:1,clientWidth:860,
    children:[],
    addEventListener(type,fn){if(id==='load'&&type==='click')clicked=fn},
    appendChild(c){this.children.push(c)},
@@ -119,6 +119,16 @@ async function scenario(kind){
   assert.equal(elementMap.get('warnings').textContent,kind==='gap'?'1':'0');
   assert.equal(elementMap.get('session').value,'7');
   assert.ok(chartDraws>0);
+  assert.equal(elementMap.get('range').disabled,false);
+  assert.match(elementMap.get('chart-info').textContent,/five-minute buckets/);
+  // Switching range uses the same CRC-checked in-browser data, no re-fetch.
+  elementMap.get('range').value='recent';
+  vm.runInNewContext('renderChart()',context,{timeout:5000});
+  assert.match(elementMap.get('chart-info').textContent,/valid 1 Hz records/);
+  elementMap.get('range').value='day';
+  vm.runInNewContext('renderChart()',context,{timeout:5000});
+  assert.match(elementMap.get('chart-info').textContent,/five-minute buckets/);
+
   assert.match(message,/History ready: 20 CRC-valid records/);
   if(kind==='utc'){
     assert.match(elementMap.get('time-note').textContent,/UTC from RP2350 SNTP/);

@@ -1,5 +1,29 @@
 # P3: Protected Historical Dashboard (experimental)
 
+## 2026-11-04: Protected Recent History and Range Selector
+
+The existing protected History page now offers four chart scopes:
+**Recent 5 min (1 Hz)**, **Last hour**, **Last 24 hours**, and
+**Entire session**. The recent view retains up to 301 CRC-verified
+individual records per boot session in browser memory while loading;
+longer views retain the original five-minute aggregation. Missing or
+warming-up measurements remain null, and recent lines break on >3-second
+sample gaps. The initial session selection prefers the newest scanned
+data-bearing session.
+
+Historical readings still load **on demand** by the existing protected
+`/api/v1/log/*` endpoints, not from the publicly accessible Live
+Dashboard. Only committed Flash pages can appear; the latest buffered
+seconds might be absent. No firmware storage format, HTTP route, or
+Cloudflare Access policy is changed. Cross-browser reloads of the Live
+Dashboard do not automatically backfill from protected Flash data.
+
+CI exercises the native HTTP route, CRC/sector parser, range switching,
+invalid-record handling and embedded script syntax. Windows target
+build/flash, browser behavior with real logged sectors, and an anonymous
+public-edge Access challenge still require deployment-specific verification.
+
+
 **Branch:** `feature/historical-dashboard`, based on the verified
 `feature/binary-log-web-download` code. **Draft PR #5**, unmerged.
 
