@@ -1,5 +1,27 @@
 # USB Sensor Web — Phase 2 (implementation staged)
 
+## 2026-11-04: Incremental strip chart and short-term tab restore
+
+Live Dashboard's four Canvas charts use a static grid layer and a distinct
+incrementally drawn data layer. New valid 1 Hz samples append a segment; after
+five minutes the data layer shifts left in small increments. Reprojection
+occurs on graph resize, Y-axis adjustment, phase transition, or device reset,
+not on every sample.
+
+The Dashboard uses browser `sessionStorage` to resume at most 301 recent
+samples after a page reload **within the same tab**. Saved state has a
+10-minute freshness limit and is rejected if the current RP2350 sequence or
+uptime is behind the saved values. Clearing browser site data, a different
+browser/device, or a reboot can still reset this view. This is not a Flash
+history service or guaranteed durable storage.
+
+Read-only logged history remains at `/api/v1/log/history` behind the
+existing Cloudflare Access `/api/v1/log/*` policy; the public Live page
+does not fetch protected Flash sector APIs. Host regressions cover canvas
+appends, rolling pixel shift, invalid gaps, tab reload and reboot.
+No extra I2C transactions, firmware logger writes or API fields are added.
+
+
 Status (2026-10-30): **Source committed, NOT rebuilt or hardware-tested.**
 The user requested no further test cycles. This is a code/contract record,
 **not** a new hardware validation claim.
